@@ -35,6 +35,7 @@
 
 | ID | Date | Decision | Status | Affects |
 |----|------|----------|--------|---------|
+| ADR-014 | 2026-09-24 | Metered-usage cents ($0.03–0.04 Copilot overage) triggered the billing flag; support draft provided | Accepted | account, CI |
 | ADR-013 | 2026-09-24 | Billing-failure flag explains the CI block; clear via billing support, pay nothing | Accepted | account, CI |
 | ADR-012 | 2026-09-24 | Billing page is not a charge; support ticket is the unblock path (no card, no repo hack) | Accepted | account, CI |
 | ADR-011 | 2026-09-24 | CI runs startup_fail account-wide (probe repo proves it); pipeline code stands, unblock on GitHub side | Accepted | .github/workflows/ci.yml, account |
@@ -71,6 +72,15 @@
 <!-- Newest decisions go at the top of this section. Keep this section growing — it is
      the living memory of the project. Delete the two example entries below once you
      have real decisions. -->
+
+### ADR-014: $0.04 metered overage caused the billing flag; support draft sent to user
+- **Date**: 2026-09-24
+- **Status**: Accepted
+- **Context**: User's billing page: $5.05 gross metered, $5.01 included → ~$0.04 remainder, matching the $0.03 Copilot AI-credit overage (3.43 credits beyond included). Plans are GitHub Free + Copilot Student ($0). With no valid payment method, the few-cents charge failed → account flag → all Actions `startup_failure`.
+- **Decision**: Provided a billing-support message reporting the exact numbers, asking to waive/clear the cents-level balance and lift the flag without adding a card. No payment, no plan change.
+- **Why**: Amounts reconcile exactly ($5.05 − $5.01 ≈ Copilot $0.03 overage); support routinely clears cents-level flags on Free/Student accounts.
+- **Consequences**: CI stays blocked until support clears it; user sends the draft as-is.
+- **Affects**: account `aditya452007`, CI unblock process
 
 ### ADR-013: The billing-failure banner is the CI blocker; support clears it, no payment needed
 - **Date**: 2026-09-24
