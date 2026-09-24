@@ -35,6 +35,7 @@
 
 | ID | Date | Decision | Status | Affects |
 |----|------|----------|--------|---------|
+| ADR-013 | 2026-09-24 | Billing-failure flag explains the CI block; clear via billing support, pay nothing | Accepted | account, CI |
 | ADR-012 | 2026-09-24 | Billing page is not a charge; support ticket is the unblock path (no card, no repo hack) | Accepted | account, CI |
 | ADR-011 | 2026-09-24 | CI runs startup_fail account-wide (probe repo proves it); pipeline code stands, unblock on GitHub side | Accepted | .github/workflows/ci.yml, account |
 | ADR-010 | 2026-09-24 | Parallel analyze/test/build-android CI on ubuntu-latest, pinned toolchain, Dependabot | Accepted | .github/workflows/ci.yml, test/ |
@@ -70,6 +71,16 @@
 <!-- Newest decisions go at the top of this section. Keep this section growing — it is
      the living memory of the project. Delete the two example entries below once you
      have real decisions. -->
+
+### ADR-013: The billing-failure banner is the CI blocker; support clears it, no payment needed
+- **Date**: 2026-09-24
+- **Status**: Accepted
+- **Context**: User reports GitHub shows "We are having a problem billing your account… transaction failed" despite never adding a card and wanting Free-only. This explains the account-wide `startup_failure` (billing-failed flags restrict the account pre-job). Community cases confirm only billing support can manually clear it (1–2 days).
+- **Options considered**: Add/update a card (refused by user, unnecessary — rejected); engineer around it (no workaround exists for account flags — rejected); contact billing support stating $0 owed / no card / Free-only, ask to clear erroneous flag (chosen).
+- **Decision**: User contacts support.github.com (Account/Billing path) with provided draft; no payment, no card. Re-trigger CI after clearance.
+- **Why**: Verified pattern from resolved community cases + matches every symptom (instant 0-job failures on two repos, valid YAML, enabled Actions).
+- **Consequences**: CI stays red until cleared. Do NOT add a card to "fix" it.
+- **Affects**: account `aditya452007`, CI unblock process
 
 ### ADR-012: Billing screen ≠ charges; file a support ticket, don't engineer around it
 - **Date**: 2026-09-24
