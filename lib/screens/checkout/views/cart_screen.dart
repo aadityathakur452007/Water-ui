@@ -39,6 +39,15 @@ class _CartScreenState extends State<CartScreen> {
           .map((e) => CartItem(
               product: _products.byId(e.productId), qty: e.qty))
           .toList();
+    } else if (args is Map) {
+      // Fresh flow from order-type / subscription config.
+      final map = Map<String, dynamic>.from(args);
+      final product =
+          _products.byId(map['productId'] as String? ?? "wd-20l");
+      _items = [CartItem(product: product, qty: map['qty'] as int? ?? 1)];
+      if (map['orderType'] == 'regular') {
+        _orderType = OrderType.regular;
+      }
     } else {
       _items = [
         CartItem(product: _products.byId("wd-20l"), qty: 2),

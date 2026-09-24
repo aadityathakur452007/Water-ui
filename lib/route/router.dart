@@ -292,6 +292,36 @@ Route<dynamic> generateRoute(RouteSettings settings) {
       return MaterialPageRoute(
         builder: (context) => const CartScreen(),
       );
+    case orderTypeScreenRoute:
+      return MaterialPageRoute(
+        builder: (context) {
+          final args =
+              settings.arguments as Map<String, dynamic>? ?? const {};
+          return OrderTypeScreen(
+            productId: args['productId'] as String? ?? "wd-20l",
+            qty: args['qty'] as int? ?? 1,
+          );
+        },
+      );
+    case subscriptionConfigScreenRoute:
+      return MaterialPageRoute(
+        builder: (context) {
+          final args =
+              settings.arguments as Map<String, dynamic>? ?? const {};
+          return SubscriptionConfigScreen(
+            productId: args['productId'] as String? ?? "wd-20l",
+            qty: args['qty'] as int? ?? 1,
+          );
+        },
+      );
+    case subscriptionsScreenRoute:
+      return MaterialPageRoute(
+        builder: (context) => const SubscriptionsScreen(),
+      );
+    case paymentMethodsScreenRoute:
+      return MaterialPageRoute(
+        builder: (context) => const PaymentMethodsScreen(),
+      );
     // case paymentMethodScreenRoute:
     //   return MaterialPageRoute(
     //     builder: (context) => const PaymentMethodScreen(),

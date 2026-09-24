@@ -20,4 +20,11 @@ class SubscriptionRepository {
   List<Subscription> subscriptions() => [
         if (activeDelivery() != null) activeDelivery()!,
       ];
+
+  DeliveryProgress septemberProgress() => const DeliveryProgress(
+        delivered: 18,
+        scheduled: 10,
+        skipped: 2,
+        amountPaid: 1080,
+      );
 }

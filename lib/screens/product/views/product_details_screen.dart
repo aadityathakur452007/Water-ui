@@ -49,7 +49,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               title: "Continue",
               subTitle: "$_qty × ${product.priceLabel}",
               press: () {
-                Navigator.pushNamed(context, cartScreenRoute);
+                Navigator.pushNamed(context, orderTypeScreenRoute,
+                    arguments: {'productId': product.id, 'qty': _qty});
               },
             )
           : null,

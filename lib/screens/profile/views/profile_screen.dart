@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:shop/components/list_tile/divider_list_tile.dart';
-import 'package:shop/components/network_image_with_loader.dart';
 import 'package:shop/constants.dart';
 import 'package:shop/route/screen_export.dart';
 
@@ -30,11 +29,42 @@ class ProfileScreen extends StatelessWidget {
             padding: const EdgeInsets.symmetric(
                 horizontal: defaultPadding, vertical: defaultPadding * 1.5),
             child: GestureDetector(
-              onTap: () {},
-              child: const AspectRatio(
-                aspectRatio: 1.8,
-                child:
-                    NetworkImageWithLoader("https://i.imgur.com/dz0BBom.png"),
+              onTap: () {
+                Navigator.pushNamed(context, subscriptionsScreenRoute);
+              },
+              child: Container(
+                padding: const EdgeInsets.all(defaultPadding),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFEAF4FC),
+                  borderRadius: BorderRadius.all(
+                      Radius.circular(defaultBorderRadious)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.water_drop,
+                        color: primaryColor, size: 28),
+                    SizedBox(width: defaultPadding),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Never run dry",
+                            style: TextStyle(
+                                fontWeight: FontWeight.w600, fontSize: 14),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            "Set up a regular water delivery",
+                            style: TextStyle(
+                                color: blackColor60, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(Icons.arrow_forward, size: 18),
+                  ],
+                ),
               ),
             ),
           ),
@@ -55,14 +85,11 @@ class ProfileScreen extends StatelessWidget {
             },
           ),
           ProfileMenuListTile(
-            text: "Returns",
-            svgSrc: "assets/icons/Return.svg",
-            press: () {},
-          ),
-          ProfileMenuListTile(
-            text: "Wishlist",
-            svgSrc: "assets/icons/Wishlist.svg",
-            press: () {},
+            text: "My Regular Deliveries",
+            svgSrc: "assets/icons/Calender.svg",
+            press: () {
+              Navigator.pushNamed(context, subscriptionsScreenRoute);
+            },
           ),
           ProfileMenuListTile(
             text: "Addresses",
@@ -72,10 +99,10 @@ class ProfileScreen extends StatelessWidget {
             },
           ),
           ProfileMenuListTile(
-            text: "Payment",
+            text: "Payment Methods",
             svgSrc: "assets/icons/card.svg",
             press: () {
-              Navigator.pushNamed(context, emptyPaymentScreenRoute);
+              Navigator.pushNamed(context, paymentMethodsScreenRoute);
             },
           ),
           ProfileMenuListTile(

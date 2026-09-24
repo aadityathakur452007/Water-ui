@@ -37,4 +37,40 @@ class Subscription {
         return "Once a Week";
     }
   }
+
+  Subscription copyWith({
+    int? quantity,
+    Frequency? frequency,
+    String? deliveryTime,
+    SubscriptionStatus? status,
+    String? nextDelivery,
+  }) {
+    return Subscription(
+      id: id,
+      productId: productId,
+      productName: productName,
+      quantity: quantity ?? this.quantity,
+      frequency: frequency ?? this.frequency,
+      startDate: startDate,
+      deliveryTime: deliveryTime ?? this.deliveryTime,
+      status: status ?? this.status,
+      nextDelivery: nextDelivery ?? this.nextDelivery,
+    );
+  }
+}
+
+class DeliveryProgress {
+  final int delivered;
+  final int scheduled;
+  final int skipped;
+  final double amountPaid;
+
+  const DeliveryProgress({
+    required this.delivered,
+    required this.scheduled,
+    required this.skipped,
+    required this.amountPaid,
+  });
+
+  int get total => delivered + scheduled + skipped;
 }
