@@ -44,6 +44,9 @@ jobs:
     name: Analyze
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/user
     steps:
       - uses: actions/checkout@v7
 
@@ -68,6 +71,9 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/user
     steps:
       - uses: actions/checkout@v7
 
@@ -92,6 +98,9 @@ jobs:
     name: Build Android (APK + AAB)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/user
     steps:
       - uses: actions/checkout@v7
 
@@ -133,7 +142,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: debug-apk
-          path: build/app/outputs/flutter-apk/app-debug.apk
+          path: apps/user/build/app/outputs/flutter-apk/app-debug.apk
           compression-level: 0 # APKs are already compressed
           retention-days: 14
           if-no-files-found: error
@@ -142,7 +151,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: release-aab
-          path: build/app/outputs/bundle/release/app-release.aab
+          path: apps/user/build/app/outputs/bundle/release/app-release.aab
           compression-level: 0
           retention-days: 14
           if-no-files-found: error

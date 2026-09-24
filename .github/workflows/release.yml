@@ -101,6 +101,7 @@ jobs:
           echo "name=${TAG#v}" >> "$GITHUB_OUTPUT"
 
       - name: Set up signing key (optional)
+        working-directory: apps/user
         run: |
           if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
             echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/upload-keystore.jks
@@ -116,21 +117,26 @@ jobs:
           fi
 
       - run: flutter pub get
+        working-directory: apps/user
       - run: flutter analyze
+        working-directory: apps/user
 
       - name: Build release APK
+        working-directory: apps/user
         run: >
           flutter build apk --release
           --build-name=${{ steps.version.outputs.name }}
           --build-number=${{ github.run_number }}
 
       - name: Build release app bundle
+        working-directory: apps/user
         run: >
           flutter build appbundle --release
           --build-name=${{ steps.version.outputs.name }}
           --build-number=${{ github.run_number }}
 
       - name: Stage artifacts
+        working-directory: apps/user
         run: |
           mkdir -p dist
           cp build/app/outputs/flutter-apk/app-release.apk "dist/water-delivery-${{ steps.version.outputs.tag }}.apk"
