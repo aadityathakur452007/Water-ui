@@ -35,6 +35,7 @@
 
 | ID | Date | Decision | Status | Affects |
 |----|------|----------|--------|---------|
+| ADR-012 | 2026-09-24 | Billing page is not a charge; support ticket is the unblock path (no card, no repo hack) | Accepted | account, CI |
 | ADR-011 | 2026-09-24 | CI runs startup_fail account-wide (probe repo proves it); pipeline code stands, unblock on GitHub side | Accepted | .github/workflows/ci.yml, account |
 | ADR-010 | 2026-09-24 | Parallel analyze/test/build-android CI on ubuntu-latest, pinned toolchain, Dependabot | Accepted | .github/workflows/ci.yml, test/ |
 | ADR-009 | 2026-09-24 | Phase 1 repurpose: mock repos + reuse widgets, ₹, 4-tab nav, drop fashion sections | Accepted | lib/models, lib/repositories, lib/screens, lib/entry_point.dart |
@@ -69,6 +70,16 @@
 <!-- Newest decisions go at the top of this section. Keep this section growing — it is
      the living memory of the project. Delete the two example entries below once you
      have real decisions. -->
+
+### ADR-012: Billing screen ≠ charges; file a support ticket, don't engineer around it
+- **Date**: 2026-09-24
+- **Status**: Accepted
+- **Context**: User sees a Billing page and fears charges; email already verified; runs still `startup_failure` account-wide. Asked for a repo/hack to avoid billing and whether to email GitHub.
+- **Options considered**: Add a payment method (explicitly refused by user, and unnecessary — rejected); hunt for a repo/workaround (no workaround exists for account-side blocks — rejected); contact GitHub Support, free, no card (chosen).
+- **Decision**: Per GitHub docs, Free includes 2000 Actions min/month for private repos; with no payment method on file GitHub can only pause usage at quota, never charge — so the Billing page is informational, ignore it. Support ticket is the only unblock path; draft provided to user.
+- **Why**: Docs-verified (billing concepts page): quota untouched on a fresh account, so billing cannot be the blocker; remaining cause is an account flag only Support can clear.
+- **Consequences**: No CI until Support clears it. No repo changes needed for this.
+- **Affects**: account `aditya452007`, CI unblock process
 
 ### ADR-011: CI startup_failure is an account block, not our YAML
 - **Date**: 2026-09-24

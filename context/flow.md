@@ -221,6 +221,8 @@ push(main, feature/**) / PR→main / dispatch
 - Repo: `github.com/aditya452007/water-delivery-app` (private). Branch pushed.
 - Status: runs `startup_failure` in 0s account-wide (proven via probe repo) —
   pipeline code verified locally, awaiting GitHub-side unblock.
+- 2026-09-24 update: email verified, billing ruled out per docs (Free quota
+  untouched, no card → cannot be charged). Next: user files support ticket.
 
 ---
 
