@@ -46,20 +46,8 @@ class WalletScreen extends StatelessWidget {
                       date: "JUN 12, 2020",
                       amount: 129,
                       products: [
-                        ProductModel(
-                          image: productDemoImg1,
-                          title: "Mountain Warehouse for Women",
-                          brandName: "Lipsy london",
-                          price: 540,
-                          priceAfetDiscount: 420,
-                          dicountpercent: 20,
-                        ),
-                        ProductModel(
-                          image: productDemoImg4,
-                          title: "Mountain Beta Warehouse",
-                          brandName: "Lipsy london",
-                          price: 800,
-                        ),
+                        demoPopularProducts[0],
+                        demoPopularProducts[2],
                       ],
                     ),
                   ),
