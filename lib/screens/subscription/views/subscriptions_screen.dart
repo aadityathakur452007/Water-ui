@@ -25,7 +25,8 @@ class SubscriptionsScreen extends StatefulWidget {
 
 class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
   final _repo = const SubscriptionRepository();
-  final List<Subscription> _subs = _repo.subscriptions();
+  final List<Subscription> _subs =
+      const SubscriptionRepository().subscriptions();
   final Set<String> _skipped = {};
 
   @override
