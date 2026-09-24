@@ -173,6 +173,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       )
                     ],
                   ),
+                  const SizedBox(height: 4),
+                  const Center(
+                    child: Text(
+                      "Vendor? Accounts are created by your distributor — use Vendor sign in to log in.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: blackColor60, fontSize: 12),
+                    ),
+                  ),
                 ],
               ),
             )

@@ -3,6 +3,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:shop/components/list_tile/divider_list_tile.dart';
 import 'package:shop/constants.dart';
 import 'package:shop/route/screen_export.dart';
+import 'package:shop/services/auth_service.dart';
 
 import 'components/profile_card.dart';
 import 'components/profile_menu_item_list_tile.dart';
@@ -189,7 +190,16 @@ class ProfileScreen extends StatelessWidget {
 
           // Log Out
           ListTile(
-            onTap: () {},
+            onTap: () async {
+              await const AuthService().logout();
+              if (context.mounted) {
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  logInScreenRoute,
+                  (_) => false,
+                );
+              }
+            },
             minLeadingWidth: 24,
             leading: SvgPicture.asset(
               "assets/icons/Logout.svg",

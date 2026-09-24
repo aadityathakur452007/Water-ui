@@ -323,6 +323,10 @@ Route<dynamic> generateRoute(RouteSettings settings) {
       return MaterialPageRoute(
         builder: (context) => const PaymentMethodsScreen(),
       );
+    case vendorHomeScreenRoute:
+      return MaterialPageRoute(
+        builder: (context) => const VendorHomeScreen(),
+      );
     // case paymentMethodScreenRoute:
     //   return MaterialPageRoute(
     //     builder: (context) => const PaymentMethodScreen(),

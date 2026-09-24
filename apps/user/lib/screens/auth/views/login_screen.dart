@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:shop/config/app_config.dart';
 import 'package:shop/constants.dart';
 import 'package:shop/route/route_constants.dart';
 import 'package:shop/services/api_client.dart';
-import 'package:shop/services/session_store.dart';
+import 'package:shop/services/auth_service.dart';
 
 import 'components/login_form.dart';
 
+/// Unified sign-in: User / Vendor toggle on one interface.
+/// Demo mode offers one-tap seed logins; live mode hits the API.
+/// Vendor accounts are provisioned (seed/admin) — never self-registered.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -17,6 +21,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final _identifier = TextEditingController();
   final _password = TextEditingController();
+  bool _isVendor = false;
   bool _busy = false;
   String? _error;
 
@@ -34,29 +39,52 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
     });
     try {
-      final api = ApiClient();
-      final id = _identifier.text.trim();
-      final body = id.contains('@')
-          ? {'email': id, 'password': _password.text}
-          : {'phone': id, 'password': _password.text};
-      final res = await api.post('/api/auth/login', body: body);
-      final map = Map<String, dynamic>.from(res as Map);
-      final token = map['token']?.toString() ?? '';
-      final user = map['user'] is Map
-          ? Map<String, dynamic>.from(map['user'] as Map)
-          : <String, dynamic>{};
-      if (token.isEmpty) throw const AppException('UNKNOWN', 'No token');
-      await const SessionStore().saveSession(token: token, user: user);
+      final user = await const AuthService().login(
+        identifier: _identifier.text,
+        password: _password.text,
+        role: _isVendor ? 'vendor' : 'user',
+      );
       if (!mounted) return;
       Navigator.pushNamedAndRemoveUntil(
         context,
-        entryPointScreenRoute,
+        (user['role']?.toString() ?? 'user') == 'vendor'
+            ? vendorHomeScreenRoute
+            : entryPointScreenRoute,
         ModalRoute.withName(logInScreenRoute),
       );
     } on AppException catch (e) {
       setState(() => _error = e.message);
     } catch (_) {
       setState(() => _error = 'Could not log in. Check connection.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _demoLogin(bool vendor) async {
+    setState(() {
+      _busy = true;
+      _error = null;
+      _isVendor = vendor;
+    });
+    try {
+      await const AuthService().login(
+        identifier: vendor
+            ? AppConfig.demoVendorEmail
+            : AppConfig.demoUserEmail,
+        password: vendor
+            ? AppConfig.demoVendorPassword
+            : AppConfig.demoUserPassword,
+        role: vendor ? 'vendor' : 'user',
+      );
+      if (!mounted) return;
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        vendor ? vendorHomeScreenRoute : entryPointScreenRoute,
+        ModalRoute.withName(logInScreenRoute),
+      );
+    } on AppException catch (e) {
+      setState(() => _error = e.message);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -86,6 +114,20 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: defaultPadding / 2),
                   const Text(
                     "Log in to order pure drinking water delivered to your home.",
+                  ),
+                  const SizedBox(height: defaultPadding),
+                  Center(
+                    child: SegmentedButton<bool>(
+                      segments: const [
+                        ButtonSegment(
+                            value: false, label: Text('User sign in')),
+                        ButtonSegment(
+                            value: true, label: Text('Vendor sign in')),
+                      ],
+                      selected: {_isVendor},
+                      onSelectionChanged: (s) =>
+                          setState(() => _isVendor = s.first),
+                    ),
                   ),
                   const SizedBox(height: defaultPadding),
                   LogInForm(
@@ -125,8 +167,29 @@ class _LoginScreenState extends State<LoginScreen> {
                               color: Colors.white,
                             ),
                           )
-                        : const Text("Log in"),
+                        : Text(_isVendor ? "Vendor log in" : "Log in"),
                   ),
+                  if (AppConfig.demoMode) ...[
+                    const SizedBox(height: 8),
+                    OutlinedButton(
+                      onPressed:
+                          _busy ? null : () => _demoLogin(false),
+                      child: const Text("Try as Demo User"),
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton(
+                      onPressed: _busy ? null : () => _demoLogin(true),
+                      child: const Text("Try as Demo Vendor"),
+                    ),
+                    const SizedBox(height: 4),
+                    const Center(
+                      child: Text(
+                        "Demo mode — no server needed.",
+                        style:
+                            TextStyle(color: blackColor60, fontSize: 12),
+                      ),
+                    ),
+                  ],
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [

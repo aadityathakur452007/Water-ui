@@ -1,3 +1,5 @@
+import '../config/app_config.dart';
+import '../models/cart_model.dart';
 import '../models/order_model.dart';
 import '../services/api_client.dart';
 import '../services/session_store.dart';
@@ -125,7 +127,11 @@ class OrderRepository {
   }
 
   /// `GET /api/orders` — own orders, newest first (auth required).
+  /// Demo mode serves bundled seed instantly (no network attempted).
   Future<List<Order>> fetchOrders({ApiClient? client}) async {
+    if (AppConfig.demoMode && client == null) {
+      return [...ongoing(), ...past()];
+    }
     final api = await _client(client);
     final body = await api.get('/api/orders');
     return _parseList(body);
@@ -141,6 +147,16 @@ class OrderRepository {
     Map<String, String>? address,
     ApiClient? client,
   }) async {
+    if (AppConfig.demoMode && client == null) {
+      final subtotal =
+          items.fold<double>(0, (s, e) => s + e.price * e.qty);
+      return placeOrder(
+        items: items,
+        total: subtotal + Cart.deliveryFee,
+        orderType: orderType,
+        deliverySlot: slot,
+      );
+    }
     final api = await _client(client);
     final body = await api.post('/api/orders', body: {
       'items': [
@@ -158,7 +174,9 @@ class OrderRepository {
   }
 
   /// `PATCH /api/orders/:id/cancel` — own + only when `scheduled`.
+  /// Demo mode is a no-op (seed list is static).
   Future<void> cancelOrder(String id, {ApiClient? client}) async {
+    if (AppConfig.demoMode && client == null) return;
     final api = await _client(client);
     await api.patch('/api/orders/$id/cancel');
   }

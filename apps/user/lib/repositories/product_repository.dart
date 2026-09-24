@@ -1,3 +1,4 @@
+import '../config/app_config.dart';
 import '../models/product_model.dart';
 import '../services/api_client.dart';
 import '../services/session_store.dart';
@@ -58,7 +59,9 @@ class ProductRepository {
   }
 
   /// `GET /api/products` — full catalog (matches Flutter seed prices).
+  /// Demo mode serves the bundled catalog (no network attempted).
   Future<List<ProductModel>> fetchAll({ApiClient? client}) async {
+    if (AppConfig.demoMode && client == null) return all();
     final api = await _client(client);
     final body = await api.get('/api/products');
     return _parseList(body);
@@ -66,8 +69,10 @@ class ProductRepository {
 
   /// `GET /api/products/search?q=` — multi-word match on
   /// name/capacity/type (server-side).
+  /// Demo mode searches the bundled catalog (no network attempted).
   Future<List<ProductModel>> searchRemote(String query,
       {ApiClient? client}) async {
+    if (AppConfig.demoMode && client == null) return search(query);
     final api = await _client(client);
     final body = await api.get('/api/products/search', query: {'q': query});
     return _parseList(body);

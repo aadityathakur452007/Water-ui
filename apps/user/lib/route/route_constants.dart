@@ -58,6 +58,7 @@ const String orderTypeScreenRoute = "order_type";
 const String subscriptionConfigScreenRoute = "subscription_config";
 const String subscriptionsScreenRoute = "subscriptions";
 const String paymentMethodsScreenRoute = "payment_methods";
+const String vendorHomeScreenRoute = "vendor_home";
 const String paymentMethodScreenRoute = "payment_method";
 const String addNewCardScreenRoute = "add_new_card";
 const String thanksForOrderScreenRoute = "thanks_order";
