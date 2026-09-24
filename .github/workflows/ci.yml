@@ -95,7 +95,6 @@ jobs:
       - run: flutter test
 
   backend:
-    name: Backend API + live smoke
     runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:
