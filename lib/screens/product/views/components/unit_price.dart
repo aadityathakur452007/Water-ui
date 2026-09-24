@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../constants.dart';
+import '../../../../models/cart_model.dart';
 
 class UnitPrice extends StatelessWidget {
   const UnitPrice({
@@ -25,13 +26,13 @@ class UnitPrice extends StatelessWidget {
         Text.rich(
           TextSpan(
             text: priceAfterDiscount == null
-                ? "\$${price.toStringAsFixed(2)}  "
-                : "\$${priceAfterDiscount!.toStringAsFixed(2)}  ",
+                ? "${inr(price)}  "
+                : "${inr(priceAfterDiscount!)}  ",
             style: Theme.of(context).textTheme.titleLarge,
             children: [
               if (priceAfterDiscount != null)
                 TextSpan(
-                  text: "\$${price.toStringAsFixed(2)}",
+                  text: inr(price),
                   style: Theme.of(context).textTheme.titleSmall!.copyWith(
                       color: Theme.of(context).textTheme.bodyMedium!.color,
                       decoration: TextDecoration.lineThrough),

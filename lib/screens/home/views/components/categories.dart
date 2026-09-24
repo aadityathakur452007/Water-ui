@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:shop/route/screen_export.dart';
 
 import '../../../../constants.dart';
 
@@ -17,15 +16,12 @@ class CategoryModel {
 }
 
 List<CategoryModel> demoCategories = [
-  CategoryModel(name: "All Categories"),
-  CategoryModel(
-      name: "On Sale",
-      svgSrc: "assets/icons/Sale.svg",
-      route: onSaleScreenRoute),
-  CategoryModel(name: "Man's", svgSrc: "assets/icons/Man.svg"),
-  CategoryModel(name: "Woman’s", svgSrc: "assets/icons/Woman.svg"),
-  CategoryModel(
-      name: "Kids", svgSrc: "assets/icons/Child.svg", route: kidsScreenRoute),
+  CategoryModel(name: "All"),
+  CategoryModel(name: "20L Jar", svgSrc: "assets/icons/water_jar.svg"),
+  CategoryModel(name: "15L Can", svgSrc: "assets/icons/water_jar.svg"),
+  CategoryModel(name: "10L Can", svgSrc: "assets/icons/water_jar.svg"),
+  CategoryModel(name: "1L Bottle", svgSrc: "assets/icons/water_bottle.svg"),
+  CategoryModel(name: "500ml Bottle", svgSrc: "assets/icons/water_bottle.svg"),
 ];
 // End For Preview
 

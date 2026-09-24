@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:shop/components/Banner/S/banner_s_style_1.dart';
-import 'package:shop/components/Banner/S/banner_s_style_5.dart';
 import 'package:shop/constants.dart';
-import 'package:shop/route/screen_export.dart';
+import 'package:shop/route/route_constants.dart';
+import 'package:shop/screens/search/views/components/search_form.dart';
 
-import 'components/best_sellers.dart';
-import 'components/flash_sale.dart';
-import 'components/most_popular.dart';
-import 'components/offer_carousel_and_categories.dart';
-import 'components/popular_products.dart';
+import 'components/active_delivery.dart';
+import 'components/categories.dart';
+import 'components/delivery_address_header.dart';
+import 'components/order_again.dart';
+import 'components/water_products.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -19,53 +18,100 @@ class HomeScreen extends StatelessWidget {
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
-            const SliverToBoxAdapter(child: OffersCarouselAndCategories()),
-            const SliverToBoxAdapter(child: PopularProducts()),
-            const SliverPadding(
-              padding: EdgeInsets.symmetric(vertical: defaultPadding * 1.5),
-              sliver: SliverToBoxAdapter(child: FlashSale()),
-            ),
+            const SliverToBoxAdapter(child: DeliveryAddressHeader()),
             SliverToBoxAdapter(
-              child: Column(
-                children: [
-                  // While loading use 👇
-                  // const BannerMSkelton(),‚
-                  BannerSStyle1(
-                    title: "New \narrival",
-                    subtitle: "SPECIAL OFFER",
-                    discountParcent: 50,
-                    press: () {
-                      Navigator.pushNamed(context, onSaleScreenRoute);
-                    },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: defaultPadding, vertical: defaultPadding / 2),
+                child: GestureDetector(
+                  onTap: () =>
+                      Navigator.pushNamed(context, searchScreenRoute),
+                  child: const AbsorbPointer(
+                    child: SearchForm(isEnabled: false),
                   ),
-                  const SizedBox(height: defaultPadding / 4),
-                  // We have 4 banner styles, all in the pro version
-                ],
+                ),
               ),
             ),
-            const SliverToBoxAdapter(child: BestSellers()),
-            const SliverToBoxAdapter(child: MostPopular()),
             SliverToBoxAdapter(
-              child: Column(
-                children: [
-                  const SizedBox(height: defaultPadding * 1.5),
+              child: Padding(
+                padding: const EdgeInsets.all(defaultPadding),
+                child: Text(
+                  "Get water delivered to your doorstep",
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium!
+                      .copyWith(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+            const SliverToBoxAdapter(child: Categories()),
+            const SliverToBoxAdapter(child: WaterProducts()),
+            const SliverToBoxAdapter(child: OrderAgain()),
+            const SliverToBoxAdapter(child: ActiveDelivery()),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(defaultPadding),
+                child: _WaterPromoBanner(
+                  press: () => Navigator.pushNamed(
+                      context, discoverScreenRoute),
+                ),
+              ),
+            ),
+            const SliverToBoxAdapter(
+                child: SizedBox(height: defaultPadding)),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
-                  const SizedBox(height: defaultPadding / 4),
-                  // While loading use 👇
-                  // const BannerSSkelton(),
-                  BannerSStyle5(
-                    title: "Black \nfriday",
-                    subtitle: "50% Off",
-                    bottomText: "Collection".toUpperCase(),
-                    press: () {
-                      Navigator.pushNamed(context, onSaleScreenRoute);
-                    },
+/// One small informational banner — never dominates the screen.
+class _WaterPromoBanner extends StatelessWidget {
+  const _WaterPromoBanner({required this.press});
+
+  final VoidCallback press;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: press,
+      child: Container(
+        padding: const EdgeInsets.all(defaultPadding),
+        decoration: const BoxDecoration(
+          color: primaryColor,
+          borderRadius:
+              BorderRadius.all(Radius.circular(defaultBorderRadious)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.water_drop, color: Colors.white, size: 28),
+            const SizedBox(width: defaultPadding),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Free delivery on 20L jars",
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleSmall!
+                        .copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600),
                   ),
-                  const SizedBox(height: defaultPadding / 4),
+                  const SizedBox(height: 2),
+                  Text(
+                    "Order 2 or more jars · Bhopal",
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodyMedium!
+                        .copyWith(color: Colors.white70, fontSize: 12),
+                  ),
                 ],
               ),
             ),
-            const SliverToBoxAdapter(child: BestSellers()),
+            const Icon(Icons.arrow_forward, color: Colors.white),
           ],
         ),
       ),

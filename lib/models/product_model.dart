@@ -1,161 +1,114 @@
-// For demo only
-import 'package:shop/constants.dart';
-
+// Water catalog. Field names kept for compat with existing widgets;
+// brandName carries the capacity label (e.g. "20 LITRES").
 class ProductModel {
-  final String image, brandName, title;
+  final String id, image, brandName, title;
   final double price;
   final double? priceAfetDiscount;
   final int? dicountpercent;
+  final String capacity;
+  final String unit;
+  final String container;
+  final String waterType;
+  final bool available;
 
-  ProductModel({
+  const ProductModel({
+    required this.id,
     required this.image,
     required this.brandName,
     required this.title,
     required this.price,
     this.priceAfetDiscount,
     this.dicountpercent,
+    required this.capacity,
+    required this.unit,
+    required this.container,
+    this.waterType = "Drinking Water",
+    this.available = true,
   });
+
+  String get priceLabel => "₹${price.toStringAsFixed(price % 1 == 0 ? 0 : 2)}";
 }
 
-List<ProductModel> demoPopularProducts = [
+const String waterJarImg = "assets/icons/water_jar.svg";
+const String waterBottleImg = "assets/icons/water_bottle.svg";
+
+const List<ProductModel> demoPopularProducts = [
   ProductModel(
-    image: productDemoImg1,
-    title: "Mountain Warehouse for Women",
-    brandName: "Lipsy london",
-    price: 540,
-    priceAfetDiscount: 420,
-    dicountpercent: 20,
+    id: "wd-20l",
+    image: waterJarImg,
+    brandName: "20 Litres",
+    title: "20L Drinking Water Jar",
+    price: 60,
+    capacity: "20 Litres",
+    unit: "jar",
+    container: "Reusable Water Jar",
   ),
   ProductModel(
-    image: productDemoImg4,
-    title: "Mountain Beta Warehouse",
-    brandName: "Lipsy london",
-    price: 800,
+    id: "wd-15l",
+    image: waterJarImg,
+    brandName: "15 Litres",
+    title: "15L Drinking Water Can",
+    price: 50,
+    capacity: "15 Litres",
+    unit: "can",
+    container: "Reusable Water Can",
   ),
   ProductModel(
-    image: productDemoImg5,
-    title: "FS - Nike Air Max 270 Really React",
-    brandName: "Lipsy london",
-    price: 650.62,
-    priceAfetDiscount: 390.36,
-    dicountpercent: 40,
+    id: "wd-10l",
+    image: waterJarImg,
+    brandName: "10 Litres",
+    title: "10L Drinking Water Can",
+    price: 40,
+    capacity: "10 Litres",
+    unit: "can",
+    container: "Reusable Water Can",
   ),
   ProductModel(
-    image: productDemoImg6,
-    title: "Green Poplin Ruched Front",
-    brandName: "Lipsy london",
-    price: 1264,
-    priceAfetDiscount: 1200.8,
-    dicountpercent: 5,
+    id: "wd-1l-12",
+    image: waterBottleImg,
+    brandName: "12 Litres",
+    title: "1L Bottles · Pack of 12",
+    price: 120,
+    capacity: "12 × 1 Litre",
+    unit: "pack",
+    container: "PET Bottles",
   ),
   ProductModel(
-    image: "https://i.imgur.com/tXyOMMG.png",
-    title: "Green Poplin Ruched Front",
-    brandName: "Lipsy london",
-    price: 650.62,
-    priceAfetDiscount: 390.36,
-    dicountpercent: 40,
+    id: "wd-500ml-12",
+    image: waterBottleImg,
+    brandName: "6 Litres",
+    title: "500ml Bottles · Pack of 12",
+    price: 90,
+    capacity: "12 × 500 ml",
+    unit: "pack",
+    container: "PET Bottles",
   ),
   ProductModel(
-    image: "https://i.imgur.com/h2LqppX.png",
-    title: "white satin corset top",
-    brandName: "Lipsy london",
-    price: 1264,
-    priceAfetDiscount: 1200.8,
-    dicountpercent: 5,
-  ),
-];
-List<ProductModel> demoFlashSaleProducts = [
-  ProductModel(
-    image: productDemoImg5,
-    title: "FS - Nike Air Max 270 Really React",
-    brandName: "Lipsy london",
-    price: 650.62,
-    priceAfetDiscount: 390.36,
-    dicountpercent: 40,
-  ),
-  ProductModel(
-    image: productDemoImg6,
-    title: "Green Poplin Ruched Front",
-    brandName: "Lipsy london",
-    price: 1264,
-    priceAfetDiscount: 1200.8,
-    dicountpercent: 5,
-  ),
-  ProductModel(
-    image: productDemoImg4,
-    title: "Mountain Beta Warehouse",
-    brandName: "Lipsy london",
-    price: 800,
-    priceAfetDiscount: 680,
-    dicountpercent: 15,
+    id: "wd-5l",
+    image: waterJarImg,
+    brandName: "5 Litres",
+    title: "5L Drinking Water Can",
+    price: 35,
+    capacity: "5 Litres",
+    unit: "can",
+    container: "Reusable Water Can",
   ),
 ];
-List<ProductModel> demoBestSellersProducts = [
-  ProductModel(
-    image: "https://i.imgur.com/tXyOMMG.png",
-    title: "Green Poplin Ruched Front",
-    brandName: "Lipsy london",
-    price: 650.62,
-    priceAfetDiscount: 390.36,
-    dicountpercent: 40,
-  ),
-  ProductModel(
-    image: "https://i.imgur.com/h2LqppX.png",
-    title: "white satin corset top",
-    brandName: "Lipsy london",
-    price: 1264,
-    priceAfetDiscount: 1200.8,
-    dicountpercent: 5,
-  ),
-  ProductModel(
-    image: productDemoImg4,
-    title: "Mountain Beta Warehouse",
-    brandName: "Lipsy london",
-    price: 800,
-    priceAfetDiscount: 680,
-    dicountpercent: 15,
-  ),
+
+final List<ProductModel> demoFlashSaleProducts = [
+  demoPopularProducts[0],
+  demoPopularProducts[1],
+  demoPopularProducts[2],
 ];
-List<ProductModel> kidsProducts = [
-  ProductModel(
-    image: "https://i.imgur.com/dbbT6PA.png",
-    title: "Green Poplin Ruched Front",
-    brandName: "Lipsy london",
-    price: 650.62,
-    priceAfetDiscount: 590.36,
-    dicountpercent: 24,
-  ),
-  ProductModel(
-    image: "https://i.imgur.com/7fSxC7k.png",
-    title: "Printed Sleeveless Tiered Swing Dress",
-    brandName: "Lipsy london",
-    price: 650.62,
-  ),
-  ProductModel(
-    image: "https://i.imgur.com/pXnYE9Q.png",
-    title: "Ruffle-Sleeve Ponte-Knit Sheath ",
-    brandName: "Lipsy london",
-    price: 400,
-  ),
-  ProductModel(
-    image: "https://i.imgur.com/V1MXgfa.png",
-    title: "Green Mountain Beta Warehouse",
-    brandName: "Lipsy london",
-    price: 400,
-    priceAfetDiscount: 360,
-    dicountpercent: 20,
-  ),
-  ProductModel(
-    image: "https://i.imgur.com/8gvE5Ss.png",
-    title: "Printed Sleeveless Tiered Swing Dress",
-    brandName: "Lipsy london",
-    price: 654,
-  ),
-  ProductModel(
-    image: "https://i.imgur.com/cBvB5YB.png",
-    title: "Mountain Beta Warehouse",
-    brandName: "Lipsy london",
-    price: 250,
-  ),
+
+final List<ProductModel> demoBestSellersProducts = [
+  demoPopularProducts[0],
+  demoPopularProducts[3],
+  demoPopularProducts[4],
+];
+
+final List<ProductModel> kidsProducts = [
+  demoPopularProducts[4],
+  demoPopularProducts[3],
+  demoPopularProducts[5],
 ];

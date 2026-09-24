@@ -131,8 +131,13 @@ Route<dynamic> generateRoute(RouteSettings settings) {
     case productDetailsScreenRoute:
       return MaterialPageRoute(
         builder: (context) {
-          bool isProductAvailable = settings.arguments as bool? ?? true;
-          return ProductDetailsScreen(isProductAvailable: isProductAvailable);
+          // String product id (water flow) or legacy bool availability flag.
+          final args = settings.arguments;
+          if (args is String) {
+            return ProductDetailsScreen(productId: args);
+          }
+          return ProductDetailsScreen(
+              isProductAvailable: args as bool? ?? true);
         },
       );
     case productReviewsScreenRoute:

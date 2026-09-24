@@ -4,14 +4,57 @@ Update this file after every meaningful implementation change.
 
 ## Current Phase
 
-**Phase 0 — Project Foundation**
+**Phase 1 — Water Delivery Repurpose (APPROVED, in progress on `feature/water-repurpose`)**
 
-Template hardening: making the execution protocol enforceable so AI agents actually follow it.
+Repurposing the FlutterShop template into a water delivery customer app.
+Repo: fresh `git init` in `water-delivery-app` (copy of template, no old history);
+`main` = template snapshot; all work on `feature/water-repurpose`.
 
 ## Current Goal
 
-Fix the template so agents comply with the workflow: auto-loaded entry point, hard gates,
-unambiguous rules, and instant project understanding via the three living context files.
+Phase 1: models + mock repos + Home + Shop + Product Detail + Cart/Checkout +
+Orders list + 4-tab nav + water-blue theme + ₹ everywhere. Phase 2 (later):
+order-type screen, subscription config/mgmt, account additions, search, notifications.
+
+## Completed
+
+- **Fresh repo + rename (2026-09-24)** — old `.git` dropped (history + origin
+  `abuanwar072` gone, as approved). OS lock prevented in-place rename, so the tree
+  was copied to `C:\Users\Hp\water-delivery-app` (excluding `.git`), fresh
+  `git init`, root commit on `main`, branched `feature/water-repurpose`.
+  Old folder `E-commerce-Complete-Flutter-UI` still on disk — user deletes manually.
+- **Spec approved** — `Feature_docs/water-repurpose/spec.md`: phased scope, catalog
+  (20L ₹60, 15L ₹50, 10L ₹40, 1L×12 ₹120, 500ml×12 ₹90, fee ₹10, Cash+UPI),
+  water-blue `0xFF1B7BD6` primary.
+- **Theme** — `constants.dart` primary + material shades + purpleColor →
+  water blue; typography/spacing untouched.
+- **Models** — `ProductModel` extended (id, capacity, unit, container, waterType,
+  available, `priceLabel` ₹); water catalog (6 items); new `cart_model.dart`
+  (`Cart`, `CartItem`, `inr()`), `order_model.dart` (Order/OrderItem/OrderType/
+  OrderStatus/DeliveryAddress), `subscription_model.dart` (data-prep for Phase 2).
+- **Repositories (mock/local)** — `ProductRepository` (all/byId/byCategory/search),
+  `OrderRepository` (ongoing/past/lastOrder/placeOrder), `SubscriptionRepository`
+  (activeDelivery). No hardcoded product values in widgets.
+- **Home** — address header, water search hint → search screen, 5 water category
+  chips, stepper product cards (₹), Order-again, next-delivery card, one small
+  promo banner. Deleted fashion sections
+  (flash_sale, best_sellers, most_popular, offers_carousel, popular_products).
+- **Shop** — `DiscoverScreen` shows Water Jars/Cans/Bottles/Packaged Water.
+- **Product detail** — capacity/container/type spec table, qty stepper, Continue →
+  cart; fashion tiles (colors/sizes/returns/reviews) removed. Router accepts a
+  product id string (legacy bool fallback kept for bookmark).
+- **Checkout** — real cart: summary ₹, fee ₹10, one-time/regular cards, address,
+  Cash/UPI (`RadioGroup`), Place Order → inline success view (#WD-…, View Order,
+  Back to Home). `CartButton`/`UnitPrice` now render ₹.
+- **Orders** — ONGOING/PAST tabs from repo, status dots, View sheet with
+  `OrderProgress` timeline reuse.
+- **Nav** — `EntryPoint` 4 tabs: Home, Orders, Shop, Account (Bookmark/Cart tabs
+  removed; routes still exist).
+- **Images** — `NetworkImageWithLoader` renders bundled `assets/` art;
+  new `water_jar.svg` / `water_bottle.svg` placeholders until real photography.
+- **Verify** — `flutter pub get` ✓, `flutter analyze` 0 errors / 0 warnings.
+  APK build impossible here (no Android SDK); web not configured. Pre-existing
+  `info` lints in untouched files left alone.
 
 ## Completed
 
@@ -25,14 +68,20 @@ unambiguous rules, and instant project understanding via the three living contex
 
 ## Next Up
 
-1. Decide whether the `folder-structure` skill trees need simplification (user wants "concise and clear, senior-engineer hierarchy")
-2. Fill the template `context/*.md` placeholders per project
-3. Run `/speckit.constitution` to ratify project principles (constitution.md is still template placeholders)
+1. Phase 2 on this branch (or follow-up): order-type screen (reuse
+   `ProductBuyNowScreen` slot), subscription config, subscription mgmt + progress,
+   account additions (My Regular Deliveries, Payment Methods), search repurpose,
+   notifications copy.
+2. Real water product photography to replace `water_jar.svg`/`water_bottle.svg`.
+3. Fill remaining `context/*.md` template placeholders; run `/speckit.constitution`.
+4. Delete old folder `E-commerce-Complete-Flutter-UI` (user, after verifying copy).
 
 ## Open Questions
 
-- `package.json` was auto-created by Skills.py inside a Flutter (`shop`) repo — keep as node sidecar for npx skills, or gitignore? Currently untracked.
-- `.agents/`, `.specify/`, `.opencode/`, `.codex/` are all untracked — decide what to commit vs gitignore (agent credential-leak warning from specify init).
+- Real prices for 15L/10L/packs were defaulted (₹50/₹40/₹120/₹90) — confirm with business.
+- Onboarding + auth + kids/on-sale/wallet screens still fashion-flavored; out of
+  Phase 1 nav but reachable via routes — Phase 2 or delete?
+- No Android SDK on this machine — APK/smoke test still needed on user side.
 
 ## Architecture Decisions
 

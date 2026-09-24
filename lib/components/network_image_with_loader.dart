@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../constants.dart';
 import 'skleton/skelton.dart';
@@ -19,6 +20,16 @@ class NetworkImageWithLoader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Local assets (e.g. bundled water product art) skip the network loader.
+    if (src.startsWith("assets/")) {
+      final Widget image = src.endsWith(".svg")
+          ? SvgPicture.asset(src, fit: fit)
+          : Image.asset(src, fit: fit);
+      return ClipRRect(
+        borderRadius: BorderRadius.all(Radius.circular(radius)),
+        child: image,
+      );
+    }
     return ClipRRect(
       borderRadius: BorderRadius.all(Radius.circular(radius)),
       child: CachedNetworkImage(

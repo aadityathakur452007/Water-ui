@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../constants.dart';
+import '../models/cart_model.dart';
 
 class CartButton extends StatelessWidget {
   const CartButton({
@@ -45,7 +46,7 @@ class CartButton extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            "\$${price.toStringAsFixed(2)}",
+                            inr(price),
                             style: Theme.of(context)
                                 .textTheme
                                 .titleSmall!

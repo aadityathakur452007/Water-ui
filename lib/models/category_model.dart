@@ -12,48 +12,44 @@ class CategoryModel {
 }
 
 final List<CategoryModel> demoCategoriesWithImage = [
-  CategoryModel(title: "Woman’s", image: "https://i.imgur.com/5M89G2P.png"),
-  CategoryModel(title: "Man’s", image: "https://i.imgur.com/UM3GdWg.png"),
-  CategoryModel(title: "Kid’s", image: "https://i.imgur.com/Lp0D6k5.png"),
-  CategoryModel(title: "Accessories", image: "https://i.imgur.com/3mSE5sN.png"),
+  CategoryModel(title: "20L Jar", svgSrc: "assets/icons/water_jar.svg"),
+  CategoryModel(title: "15L Can", svgSrc: "assets/icons/water_jar.svg"),
+  CategoryModel(title: "10L Can", svgSrc: "assets/icons/water_jar.svg"),
+  CategoryModel(title: "1L Bottle", svgSrc: "assets/icons/water_bottle.svg"),
+  CategoryModel(title: "500ml Bottle", svgSrc: "assets/icons/water_bottle.svg"),
 ];
 
 final List<CategoryModel> demoCategories = [
   CategoryModel(
-    title: "On sale",
-    svgSrc: "assets/icons/Sale.svg",
+    title: "Water Jars",
+    svgSrc: "assets/icons/water_jar.svg",
     subCategories: [
-      CategoryModel(title: "All Clothing"),
-      CategoryModel(title: "New In"),
-      CategoryModel(title: "Coats & Jackets"),
-      CategoryModel(title: "Dresses"),
-      CategoryModel(title: "Jeans"),
+      CategoryModel(title: "20L Drinking Water Jar"),
+      CategoryModel(title: "Refill / Exchange"),
     ],
   ),
   CategoryModel(
-    title: "Man’s & Woman’s",
-    svgSrc: "assets/icons/Man&Woman.svg",
+    title: "Water Cans",
+    svgSrc: "assets/icons/water_jar.svg",
     subCategories: [
-      CategoryModel(title: "All Clothing"),
-      CategoryModel(title: "New In"),
-      CategoryModel(title: "Coats & Jackets"),
+      CategoryModel(title: "15L Drinking Water Can"),
+      CategoryModel(title: "10L Drinking Water Can"),
+      CategoryModel(title: "5L Drinking Water Can"),
     ],
   ),
   CategoryModel(
-    title: "Kids",
-    svgSrc: "assets/icons/Child.svg",
+    title: "Water Bottles",
+    svgSrc: "assets/icons/water_bottle.svg",
     subCategories: [
-      CategoryModel(title: "All Clothing"),
-      CategoryModel(title: "New In"),
-      CategoryModel(title: "Coats & Jackets"),
+      CategoryModel(title: "1L Bottles · Pack of 12"),
+      CategoryModel(title: "500ml Bottles · Pack of 12"),
     ],
   ),
   CategoryModel(
-    title: "Accessories",
-    svgSrc: "assets/icons/Accessories.svg",
+    title: "Packaged Water",
+    svgSrc: "assets/icons/Product.svg",
     subCategories: [
-      CategoryModel(title: "All Clothing"),
-      CategoryModel(title: "New In"),
+      CategoryModel(title: "Bulk / Event Packs"),
     ],
   ),
 ];

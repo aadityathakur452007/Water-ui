@@ -35,6 +35,9 @@
 
 | ID | Date | Decision | Status | Affects |
 |----|------|----------|--------|---------|
+| ADR-009 | 2026-09-24 | Phase 1 repurpose: mock repos + reuse widgets, ₹, 4-tab nav, drop fashion sections | Accepted | lib/models, lib/repositories, lib/screens, lib/entry_point.dart |
+| ADR-008 | 2026-09-24 | Primary purple 0xFF7B61FF → water blue 0xFF1B7BD6; keep type/spacing | Accepted | lib/constants.dart |
+| ADR-007 | 2026-09-24 | Fresh git repo via copy (rename blocked by OS lock); main=snapshot, work on feature/water-repurpose | Accepted | repo root, git history |
 | ADR-006 | 2026-09-24 | specify init with opencode integration (ps scripts) to unlock speckit.* SDLC commands | Accepted | .specify/, .opencode/, .codex/, AGENTS.md |
 | ADR-005 | 2026-09-24 | Keep pre-installed specify-cli 1.0.5.dev0; skip broken `git+...@latest` reinstall | Accepted | tooling, Agent.md instruction |
 | ADR-004 | 2026-09-24 | Run Skills.py --yes: 36 community skills + node sidecar package.json in Flutter repo | Accepted | .agents/skills/, package.json, skills-lock.json |
@@ -64,6 +67,36 @@
 <!-- Newest decisions go at the top of this section. Keep this section growing — it is
      the living memory of the project. Delete the two example entries below once you
      have real decisions. -->
+
+### ADR-009: Phase 1 repurpose — mock repos, widget reuse, ₹, 4-tab nav
+- **Date**: 2026-09-24
+- **Status**: Accepted
+- **Context**: Approved spec demands repurpose-not-redesign with a clean seam for backend integration and no fake hardcoded UI values.
+- **Options considered**: Hardcode water data in widgets (fast, but scatters values — rejected per spec's engineering rule); full backend now (out of scope — rejected); mock `Product/Order/SubscriptionRepository` + reuse `ProductCard`, `ProductQuantity`, `CartButton`, `OrderProgress`, `SearchForm`, `ExpansionCategory` (chosen).
+- **Decision**: New models (`cart`, `order`, `subscription`) + 3 mock repositories; Home/Shop/Detail/Cart/Orders rewritten on reused widgets; `EntryPoint` 4 tabs (Home, Orders, Shop, Account); fashion home sections deleted; details router takes product id with bool fallback.
+- **Why**: Smallest diff that meets the spec; repository seam makes Phase 2/backend swap mechanical; deleted sections were fashion-only with zero water reuse.
+- **Consequences**: Bookmark/kids/on-sale/wallet/auth/onboarding files untouched (stale fashion copy, off-nav). `RadioGroup` used (Flutter ≥3.29 API). Real photography still needed.
+- **Affects**: `lib/models/`, `lib/repositories/`, home/shop/product/checkout/order screens, `lib/entry_point.dart`, router
+
+### ADR-008: Water blue primary, keep everything else
+- **Date**: 2026-09-24
+- **Status**: Accepted
+- **Context**: Spec says keep existing blue/white language; actual primary was purple 0xFF7B61FF.
+- **Options considered**: Keep purple (clashes with water identity — rejected); full palette redesign (violates repurpose rule — rejected); swap primary + material ramp to 0xFF1B7BD6 only (chosen).
+- **Decision**: `primaryColor`, `primaryMaterialColor`, `purpleColor` → water blue ramp; fonts, spacing, radius, success/warning/error untouched.
+- **Why**: One-token change propagates via existing theme references (buttons, nav, chips); zero layout churn.
+- **Consequences**: Some SVG/icon tints referencing old purple hex remain in untouched files — cosmetic, Phase 2.
+- **Affects**: `lib/constants.dart`
+
+### ADR-007: Fresh repo via copy; main = snapshot; work on feature branch
+- **Date**: 2026-09-24
+- **Status**: Accepted
+- **Context**: User approved dropping `.git` (history + origin) + rename to water-delivery-app + branch for changes. Windows held a lock on the folder (IDE/agent cwd), so in-place `Rename-Item`/`move` failed with Access denied.
+- **Options considered**: Force-close handles (risky, unknown owner — rejected); `git filter-branch`/orphan branch in place (keeps old objects, not a true fresh start — rejected); robocopy tree excluding `.git` to `water-delivery-app` + `git init` + root commit on `main` + `feature/water-repurpose` (chosen).
+- **Decision**: New folder + fresh repo as above; old folder left on disk for the user to delete.
+- **Why**: Satisfies "new repo, changes off main" without fighting the OS lock; copy verified (`lib/main.dart` present, 757 files committed).
+- **Consequences**: Old remote/history unrecoverable from new repo (intended). User must delete `E-commerce-Complete-Flutter-UI` manually and, later, set a new remote.
+- **Affects**: repo root, git history, both folders on disk
 
 ### ADR-006: specify init with opencode integration (ps scripts)
 - **Date**: 2026-09-24

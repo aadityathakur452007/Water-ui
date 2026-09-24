@@ -8,6 +8,7 @@ class SearchForm extends StatelessWidget {
     super.key,
     this.formKey,
     this.isEnabled = true,
+    this.hintText = "Search water, jars, bottles...",
     this.onSaved,
     this.validator,
     this.onChanged,
@@ -19,6 +20,7 @@ class SearchForm extends StatelessWidget {
 
   final GlobalKey<FormState>? formKey;
   final bool isEnabled;
+  final String hintText;
   final ValueChanged<String?>? onSaved, onChanged, onFieldSubmitted;
   final FormFieldValidator<String>? validator;
   final VoidCallback? onTabFilter;
@@ -38,7 +40,7 @@ class SearchForm extends StatelessWidget {
         validator: validator,
         textInputAction: TextInputAction.search,
         decoration: InputDecoration(
-          hintText: "Find something...",
+          hintText: hintText,
           filled: false,
           border: secodaryOutlineInputBorder(context),
           enabledBorder: secodaryOutlineInputBorder(context),

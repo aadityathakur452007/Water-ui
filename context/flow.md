@@ -163,6 +163,51 @@ specify init . --integration opencode --force --non-interactive --script ps
 
 ---
 
+## Water App — Actual (Flutter, Phase 1, 2026-09-24)
+
+> NOTE: The Next.js diagrams above are template placeholders. The real app is
+> Flutter (`shop` package). This section is the source of truth until the
+> placeholders are replaced.
+
+### Bottom nav (`lib/entry_point.dart`)
+```
+EntryPoint [_currentIndex]
+  ├─ 0 Home    → HomeScreen
+  ├─ 1 Orders  → OrdersScreen (ONGOING / PAST tabs)
+  ├─ 2 Shop    → DiscoverScreen (water categories)
+  └─ 3 Account → ProfileScreen (Phase 1: as-is)
+```
+
+### Screen → data flow (all reads go through repositories)
+```
+HomeScreen
+  ├─ DeliveryAddressHeader      → defaultAddress (order_model)
+  ├─ SearchForm                 → searchScreenRoute
+  ├─ Categories (chips)         → local list (no route)
+  ├─ WaterProducts (qty state)  → ProductRepository.all()
+  │    └─ ProductCard(stepper)  → productDetailsScreenRoute(product.id)
+  ├─ OrderAgain                 → OrderRepository.lastOrder() → cart + Reorder
+  └─ ActiveDelivery             → SubscriptionRepository.activeDelivery()
+
+ProductDetailsScreen(productId)
+  ├─ ProductRepository.byId() → images/info/spec table/qty → cartScreenRoute
+
+CartScreen (checkout, qty/address/type/payment state)
+  ├─ OrderRepository.placeOrder() → _SuccessView → orders / entry point
+
+OrdersScreen → OrderRepository.ongoing()/past() → View sheet → OrderProgress
+```
+
+### Route map (new/changed)
+| Route | Screen | Notes |
+|-------|--------|-------|
+| `entry_point` | `EntryPoint` (4 tabs) | Bookmark/Cart tabs removed |
+| `product_details` + id arg | `ProductDetailsScreen` | bool-arg fallback kept |
+| `cart` (+ optional Order arg) | `CartScreen` | reorder seeding via args |
+| `orders` | `OrdersScreen` | repo-backed tabs |
+
+---
+
 ## Update Protocol (MANDATORY)
 
 Update this file when any of the following change:

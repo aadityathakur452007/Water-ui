@@ -1,47 +1,58 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:shop/components/buy_full_ui_kit.dart';
 import 'package:shop/components/cart_button.dart';
 import 'package:shop/components/custom_modal_bottom_sheet.dart';
 import 'package:shop/components/product/product_card.dart';
 import 'package:shop/constants.dart';
-import 'package:shop/screens/product/views/product_returns_screen.dart';
+import 'package:shop/models/product_model.dart';
+import 'package:shop/repositories/product_repository.dart';
 
-import 'package:shop/route/screen_export.dart';
+import 'package:shop/route/route_constants.dart';
 
-import 'components/notify_me_card.dart';
 import 'components/product_images.dart';
 import 'components/product_info.dart';
 import 'components/product_list_tile.dart';
-import '../../../components/review_card.dart';
-import 'product_buy_now_screen.dart';
+import 'components/product_quantity.dart';
 
-class ProductDetailsScreen extends StatelessWidget {
-  const ProductDetailsScreen({super.key, this.isProductAvailable = true});
+class ProductDetailsScreen extends StatefulWidget {
+  const ProductDetailsScreen({
+    super.key,
+    this.isProductAvailable = true,
+    this.productId,
+  });
 
   final bool isProductAvailable;
+  final String? productId;
+
+  @override
+  State<ProductDetailsScreen> createState() => _ProductDetailsScreenState();
+}
+
+class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
+  int _qty = 1;
+  late final ProductModel product;
+
+  @override
+  void initState() {
+    super.initState();
+    product =
+        const ProductRepository().byId(widget.productId ?? "wd-20l");
+  }
 
   @override
   Widget build(BuildContext context) {
+    final bool available = product.available && widget.isProductAvailable;
     return Scaffold(
-      bottomNavigationBar: isProductAvailable
+      bottomNavigationBar: available
           ? CartButton(
-              price: 140,
+              price: product.price * _qty,
+              title: "Continue",
+              subTitle: "${_qty} × ${product.priceLabel}",
               press: () {
-                customModalBottomSheet(
-                  context,
-                  height: MediaQuery.of(context).size.height * 0.92,
-                  child: const ProductBuyNowScreen(),
-                );
+                Navigator.pushNamed(context, cartScreenRoute);
               },
             )
-          :
-
-          /// If profuct is not available then show [NotifyMeCard]
-          NotifyMeCard(
-              isNotify: false,
-              onChanged: (value) {},
-            ),
+          : null,
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
@@ -56,75 +67,47 @@ class ProductDetailsScreen extends StatelessWidget {
                 ),
               ],
             ),
-            const ProductImages(
-              images: [productDemoImg1, productDemoImg2, productDemoImg3],
-            ),
+            ProductImages(images: [product.image]),
             ProductInfo(
-              brand: "LIPSY LONDON",
-              title: "Sleeveless Ruffle",
-              isAvailable: isProductAvailable,
+              brand: product.capacity.toUpperCase(),
+              title: product.title,
+              isAvailable: available,
               description:
-                  "A cool gray cap in soft corduroy. Watch me.' By buying cotton products from Lindex, you’re supporting more responsibly...",
-              rating: 4.4,
-              numOfReviews: 126,
+                  "Purified ${product.waterType.toLowerCase()} in a ${product.container.toLowerCase()}. "
+                  "Sealed, hygienic and delivered to your doorstep.",
+              rating: 4.6,
+              numOfReviews: 214,
             ),
-            ProductListTile(
-              svgSrc: "assets/icons/Product.svg",
-              title: "Product Details",
-              press: () {
-                customModalBottomSheet(
-                  context,
-                  height: MediaQuery.of(context).size.height * 0.92,
-                  child: const BuyFullKit(
-                      images: ["assets/screens/Product detail.png"]),
-                );
-              },
-            ),
-            ProductListTile(
-              svgSrc: "assets/icons/Delivery.svg",
-              title: "Shipping Information",
-              press: () {
-                customModalBottomSheet(
-                  context,
-                  height: MediaQuery.of(context).size.height * 0.92,
-                  child: const BuyFullKit(
-                    images: ["assets/screens/Shipping information.png"],
-                  ),
-                );
-              },
-            ),
-            ProductListTile(
-              svgSrc: "assets/icons/Return.svg",
-              title: "Returns",
-              isShowBottomBorder: true,
-              press: () {
-                customModalBottomSheet(
-                  context,
-                  height: MediaQuery.of(context).size.height * 0.92,
-                  child: const ProductReturnsScreen(),
-                );
-              },
-            ),
-            const SliverToBoxAdapter(
+            SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.all(defaultPadding),
-                child: ReviewCard(
-                  rating: 4.3,
-                  numOfReviews: 128,
-                  numOfFiveStar: 80,
-                  numOfFourStar: 30,
-                  numOfThreeStar: 5,
-                  numOfTwoStar: 4,
-                  numOfOneStar: 1,
+                padding: const EdgeInsets.symmetric(horizontal: defaultPadding),
+                child: _SpecTable(product: product),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(defaultPadding),
+                child: ProductQuantity(
+                  numOfItem: _qty,
+                  onIncrement: () => setState(() => _qty++),
+                  onDecrement: () => setState(() => _qty = _qty > 1 ? _qty - 1 : 1),
                 ),
               ),
             ),
             ProductListTile(
-              svgSrc: "assets/icons/Chat.svg",
-              title: "Reviews",
-              isShowBottomBorder: true,
+              svgSrc: "assets/icons/Delivery.svg",
+              title: "Delivery Information",
               press: () {
-                Navigator.pushNamed(context, productReviewsScreenRoute);
+                customModalBottomSheet(
+                  context,
+                  child: Padding(
+                    padding: const EdgeInsets.all(defaultPadding * 1.5),
+                    child: Text(
+                      "Same-day delivery across Bhopal. One-time orders arrive in the selected slot; regular deliveries follow your subscription schedule. Delivery fee ₹10 per order.",
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ),
+                );
               },
             ),
             SliverPadding(
@@ -141,21 +124,33 @@ class ProductDetailsScreen extends StatelessWidget {
                 height: 220,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
-                  itemCount: 5,
-                  itemBuilder: (context, index) => Padding(
-                    padding: EdgeInsets.only(
-                        left: defaultPadding,
-                        right: index == 4 ? defaultPadding : 0),
-                    child: ProductCard(
-                      image: productDemoImg2,
-                      title: "Sleeveless Tiered Dobby Swing Dress",
-                      brandName: "LIPSY LONDON",
-                      price: 24.65,
-                      priceAfetDiscount: index.isEven ? 20.99 : null,
-                      dicountpercent: index.isEven ? 25 : null,
-                      press: () {},
-                    ),
-                  ),
+                  itemCount: demoPopularProducts.length,
+                  itemBuilder: (context, index) {
+                    final other = demoPopularProducts[index];
+                    if (other.id == product.id) {
+                      return const SizedBox.shrink();
+                    }
+                    return Padding(
+                      padding: EdgeInsets.only(
+                          left: defaultPadding,
+                          right: index == demoPopularProducts.length - 1
+                              ? defaultPadding
+                              : 0),
+                      child: ProductCard(
+                        image: other.image,
+                        title: other.title,
+                        brandName: other.brandName,
+                        price: other.price,
+                        priceAfetDiscount: other.priceAfetDiscount,
+                        dicountpercent: other.dicountpercent,
+                        press: () {
+                          Navigator.pushNamed(
+                              context, productDetailsScreenRoute,
+                              arguments: other.id);
+                        },
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
@@ -164,6 +159,58 @@ class ProductDetailsScreen extends StatelessWidget {
             )
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _SpecTable extends StatelessWidget {
+  const _SpecTable({required this.product});
+
+  final ProductModel product;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Product Details",
+          style: Theme.of(context)
+              .textTheme
+              .titleMedium!
+              .copyWith(fontWeight: FontWeight.w500),
+        ),
+        const SizedBox(height: defaultPadding / 2),
+        _row(context, "Capacity", product.capacity),
+        _row(context, "Container", product.container),
+        _row(context, "Water Type", product.waterType),
+        const SizedBox(height: defaultPadding / 2),
+      ],
+    );
+  }
+
+  Widget _row(BuildContext context, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 110,
+            child: Text(label,
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium!
+                    .copyWith(fontSize: 13)),
+          ),
+          Expanded(
+            child: Text(value,
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyLarge!
+                    .copyWith(fontSize: 13, fontWeight: FontWeight.w500)),
+          ),
+        ],
       ),
     );
   }
