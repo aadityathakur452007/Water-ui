@@ -35,6 +35,7 @@
 
 | ID | Date | Decision | Status | Affects |
 |----|------|----------|--------|---------|
+| ADR-018 | 2026-09-24 | Fullstack: Bun+Hono+SQLite(D1-ready), vendor app, flutter_ui_collection, server-side PII strip | Accepted | backend/, apps/, CI |
 | ADR-017 | 2026-09-24 | Every commit auto-publishes rolling `latest` prerelease; tags stay immutable | Accepted | .github/workflows/release.yml |
 | ADR-016 | 2026-09-24 | Phase 2 on feature/water-phase2: order-type, subscriptions, search, notifications, account | Accepted | lib/screens, lib/route, CI |
 | ADR-015 | 2026-09-24 | Tag-driven releases (softprops), keystore wiring, lint-zero via dart fix | Accepted | .github/workflows/release.yml, android/, lib/ |
@@ -75,6 +76,15 @@
 <!-- Newest decisions go at the top of this section. Keep this section growing — it is
      the living memory of the project. Delete the two example entries below once you
      have real decisions. -->
+
+### ADR-018: Real backend + vendor app + library adoption via 3 parallel agents
+- **Date**: 2026-09-24
+- **Status**: Accepted
+- **Context**: User demanded ui-checklist audit, Order-Again rebuild, real users/tracking, vendor login+dashboard, Cloudflare-compatible DB in Docker, flutter_ui_collection (no hand-rolled AI components), 2 branches, parallel agents.
+- **Decision**: Monorepo `apps/user|vendor + backend`. Backend: Bun+Hono+TS+`bun:sqlite` raw SQL (Bun.password argon2id, token sessions, role forced server-side); SQLite file in Docker volume = D1-compatible schema.sql, Workers-ready Hono. Vendor: separate Flutter app (login w/ role gate, KPI dashboard, PII-stripped orders + status advance, subscriptions) with flutter_ui_collection dashboard/auth modules. User app: ui-checklist fixes (NotFound route, loading/error/empty, toggles, checkbox fix), Order-Again rebuilt flat, UiTimeline/UiStat adoption only, HTTP-wired repos + real login/signup, mock sync methods kept as offline fallback. PII rule enforced in vendor serializers (verified live: zero name/phone/email keys). CI gained backend boot+smoke job (incl. PII asserts) and vendor analyze/test job. Fixed integration break found live: order `type` wire format is `one-time` (was `one_time`).
+- **Why**: Smallest stack satisfying Cloudflare-future (Hono runs on Workers, D1 runs schema.sql); library chosen has exactly the needed modules (dashboard KPIs, order tracker, auth); parallel worktrees kept agents collision-free; frozen contract prevented drift.
+- **Consequences**: Branches `feature/user-app-audit` (CI green incl. smoke) + `feature/vendor-app` (CI green) await review + merge. Still TODO: merge both, vendor APK in release, unique vendor app label, Firebase/Clerk + Workers+D1 migration, real photos.
+- **Affects**: `backend/`, `apps/user`, `apps/vendor`, `docker-compose.yml`, CI, contract
 
 ### ADR-017: Rolling `latest` release on every commit — zero manual tagging
 - **Date**: 2026-09-24

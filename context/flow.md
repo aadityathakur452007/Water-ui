@@ -180,25 +180,28 @@ EntryPoint [_currentIndex]
 
 ### Screen → data flow (all reads go through repositories)
 ```
+USER APP (real API; mocks kept as offline fallback)
+Home → ApiClient → Hono → SQLite → order/tracking reflects vendor updates
+Auth: login/signup → sessions → Bearer token (shared_preferences)
+
+VENDOR APP (separate app, PII-stripped by server)
+Login (role gate) → Dashboard (KPIs) → Orders (address+items only)
+  → advance status → user app sees new status on refresh
+Backend: docker compose up → :3000 (10.0.2.2:3000 from Android emulator)
+
+### Screen detail (user app)
+```
 HomeScreen
-  ├─ DeliveryAddressHeader      → defaultAddress (order_model)
-  ├─ SearchForm                 → searchScreenRoute
-  ├─ Categories (chips)         → local list (no route)
-  ├─ WaterProducts (qty state)  → ProductRepository.all()
-  │    └─ ProductCard(stepper)  → productDetailsScreenRoute(product.id)
-  ├─ OrderAgain                 → OrderRepository.lastOrder() → cart + Reorder
-  └─ ActiveDelivery             → SubscriptionRepository.activeDelivery()
-
-ProductDetailsScreen(productId)
-  └─ ProductRepository.byId() → spec table/qty → orderTypeScreenRoute{productId, qty}
-
-OrderTypeScreen → one-time → cartScreenRoute{…orderType}
-                → regular  → subscriptionConfigScreenRoute{…} → cart (regular)
-
-CartScreen (checkout) → OrderRepository.placeOrder() → success → orders / home
-OrdersScreen → OrderRepository → View sheet → OrderProgress
-SubscriptionsScreen → SubscriptionRepository → pause/skip/modify (local state)
-SearchScreen → ProductRepository.search() → details
+  ├─ DeliveryAddressHeader, SearchForm → searchScreenRoute
+  ├─ Categories (chips), WaterProducts (stepper) → productDetailsScreenRoute(id)
+  ├─ OrderAgain → OrderRepository.lastOrder() → cart + Reorder
+  └─ ActiveDelivery → subscriptions
+ProductDetailsScreen → spec table/qty → orderTypeScreenRoute{productId, qty}
+OrderTypeScreen → one-time → cart{…} | regular → subscriptionConfig → cart
+CartScreen → POST /api/orders → success → orders / home
+OrdersScreen (ONGOING/PAST) → View sheet → OrderProgress timeline
+SubscriptionsScreen → pause/skip/modify (local until user endpoints land)
+SearchScreen → ProductRepository.search() → details grid
 ```
 
 ### Route map (new/changed)
