@@ -208,6 +208,22 @@ OrdersScreen → OrderRepository.ongoing()/past() → View sheet → OrderProgre
 
 ---
 
+## CI Pipeline (GitHub Actions, 2026-09-24)
+
+```
+push(main, feature/**) / PR→main / dispatch
+  ├─ analyze ────────► checkout → java17 → flutter 3.44.9 → pub get → analyze
+  ├─ test ───────────► checkout → java17 → flutter 3.44.9 → pub get → flutter test
+  └─ build-android ──► checkout → java17 → setup-gradle → flutter → pub get
+                       → apk --debug → appbundle --release → upload APK + AAB
+(all parallel; concurrency cancels superseded runs; PR Gradle cache read-only)
+```
+- Repo: `github.com/aditya452007/water-delivery-app` (private). Branch pushed.
+- Status: runs `startup_failure` in 0s account-wide (proven via probe repo) —
+  pipeline code verified locally, awaiting GitHub-side unblock.
+
+---
+
 ## Update Protocol (MANDATORY)
 
 Update this file when any of the following change:

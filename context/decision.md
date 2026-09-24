@@ -35,6 +35,8 @@
 
 | ID | Date | Decision | Status | Affects |
 |----|------|----------|--------|---------|
+| ADR-011 | 2026-09-24 | CI runs startup_fail account-wide (probe repo proves it); pipeline code stands, unblock on GitHub side | Accepted | .github/workflows/ci.yml, account |
+| ADR-010 | 2026-09-24 | Parallel analyze/test/build-android CI on ubuntu-latest, pinned toolchain, Dependabot | Accepted | .github/workflows/ci.yml, test/ |
 | ADR-009 | 2026-09-24 | Phase 1 repurpose: mock repos + reuse widgets, ₹, 4-tab nav, drop fashion sections | Accepted | lib/models, lib/repositories, lib/screens, lib/entry_point.dart |
 | ADR-008 | 2026-09-24 | Primary purple 0xFF7B61FF → water blue 0xFF1B7BD6; keep type/spacing | Accepted | lib/constants.dart |
 | ADR-007 | 2026-09-24 | Fresh git repo via copy (rename blocked by OS lock); main=snapshot, work on feature/water-repurpose | Accepted | repo root, git history |
@@ -67,6 +69,26 @@
 <!-- Newest decisions go at the top of this section. Keep this section growing — it is
      the living memory of the project. Delete the two example entries below once you
      have real decisions. -->
+
+### ADR-011: CI startup_failure is an account block, not our YAML
+- **Date**: 2026-09-24
+- **Status**: Accepted
+- **Context**: All CI runs (full workflow, fixed workflow, even a minimal echo workflow) failed in 0s with `startup_failure`, zero jobs, no error message.
+- **Options considered**: Keep guessing at YAML (bisect proved content-independent — rejected); verify action refs via `git ls-remote` (found one real bug: `gradle/actions/setup-gradle@v2` doesn't exist → fixed to `@v6`); probe with a fresh trivial repo on main (also instant-failed → proves account-level block).
+- **Decision**: Pipeline code stands as written. Unblocking must happen GitHub-side: verify account email, check billing/Actions minutes, then re-trigger via push or `workflow_dispatch`. Probe repo `ci-probe` left for the user to delete (token lacks `delete_repo`).
+- **Why**: Two independent repos + minimal YAML failing identically rules out our code. Chasing YAML further would be hallucination-driven CI editing — exactly what the user asked to avoid.
+- **Consequences**: No green CI until account is trusted. Local `flutter analyze`/`flutter test` remain the verification gate meanwhile.
+- **Affects**: `.github/workflows/ci.yml`, GitHub account `aditya452007`
+
+### ADR-010: Parallel CI with pinned toolchain + Dependabot
+- **Date**: 2026-09-24
+- **Status**: Accepted
+- **Context**: Need Android compile proof per push without the 3x sequential cost; user demanded latest versions, no hallucinated refs.
+- **Options considered**: Single sequential job (simple but ~3x wall-clock — rejected); Fastlane/MAS (heavy for now — rejected); 3 parallel jobs (analyze, test, build-android) on ubuntu-latest with 3 cache layers (flutter-action SDK+pub, setup-gradle deps+build, PR read-only) (chosen).
+- **Decision**: `.github/workflows/ci.yml` as researched: checkout@v7, setup-java@v6 (temurin 17), setup-gradle@v6, flutter-action@v2 pinned to local Flutter 3.44.9; build job emits debug APK + `--build-number=run_number` release AAB; Dependabot weekly for actions + pub.
+- **Why**: Matches how large Android/Flutter shops run it (parallel gates, read-only PR caches, versioned artifacts); every ref verified against upstream tags + AGP/Gradle/Java compat tables; Java 17 satisfies AGP 7.3 through 9.x so the workflow survives repo upgrades.
+- **Consequences**: Release signing + store deploy intentionally deferred to a gated release workflow (needs secrets). Counter `widget_test` replaced by `water_catalog_test` (5 unit tests, green locally).
+- **Affects**: `.github/workflows/ci.yml`, `.github/dependabot.yml`, `test/`
 
 ### ADR-009: Phase 1 repurpose — mock repos, widget reuse, ₹, 4-tab nav
 - **Date**: 2026-09-24

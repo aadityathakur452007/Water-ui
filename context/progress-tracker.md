@@ -68,13 +68,14 @@ order-type screen, subscription config/mgmt, account additions, search, notifica
 
 ## Next Up
 
-1. Phase 2 on this branch (or follow-up): order-type screen (reuse
-   `ProductBuyNowScreen` slot), subscription config, subscription mgmt + progress,
-   account additions (My Regular Deliveries, Payment Methods), search repurpose,
-   notifications copy.
-2. Real water product photography to replace `water_jar.svg`/`water_bottle.svg`.
-3. Fill remaining `context/*.md` template placeholders; run `/speckit.constitution`.
-4. Delete old folder `E-commerce-Complete-Flutter-UI` (user, after verifying copy).
+1. **Unblock Actions** (user): verify GitHub email, check Settings → Billing for
+   Actions minutes, then push any commit or run CI via `workflow_dispatch`.
+2. Phase 2 app work (order-type, subscriptions, account, search, notifications).
+3. Follow-ups: unique `applicationId` (still `com.example.shop`), release signing
+   secrets + gated release workflow, delete `ci-probe` repo + old local folder.
+4. Real water product photography to replace `water_jar.svg`/`water_bottle.svg`.
+5. Fill remaining `context/*.md` template placeholders; run `/speckit.constitution`.
+6. Delete old folder `E-commerce-Complete-Flutter-UI` (user, after verifying copy).
 
 ## Open Questions
 
