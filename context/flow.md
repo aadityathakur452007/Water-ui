@@ -190,12 +190,15 @@ HomeScreen
   └─ ActiveDelivery             → SubscriptionRepository.activeDelivery()
 
 ProductDetailsScreen(productId)
-  ├─ ProductRepository.byId() → images/info/spec table/qty → cartScreenRoute
+  └─ ProductRepository.byId() → spec table/qty → orderTypeScreenRoute{productId, qty}
 
-CartScreen (checkout, qty/address/type/payment state)
-  ├─ OrderRepository.placeOrder() → _SuccessView → orders / entry point
+OrderTypeScreen → one-time → cartScreenRoute{…orderType}
+                → regular  → subscriptionConfigScreenRoute{…} → cart (regular)
 
-OrdersScreen → OrderRepository.ongoing()/past() → View sheet → OrderProgress
+CartScreen (checkout) → OrderRepository.placeOrder() → success → orders / home
+OrdersScreen → OrderRepository → View sheet → OrderProgress
+SubscriptionsScreen → SubscriptionRepository → pause/skip/modify (local state)
+SearchScreen → ProductRepository.search() → details
 ```
 
 ### Route map (new/changed)

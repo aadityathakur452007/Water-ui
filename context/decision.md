@@ -35,6 +35,7 @@
 
 | ID | Date | Decision | Status | Affects |
 |----|------|----------|--------|---------|
+| ADR-016 | 2026-09-24 | Phase 2 on feature/water-phase2: order-type, subscriptions, search, notifications, account | Accepted | lib/screens, lib/route, CI |
 | ADR-015 | 2026-09-24 | Tag-driven releases (softprops), keystore wiring, lint-zero via dart fix | Accepted | .github/workflows/release.yml, android/, lib/ |
 | ADR-014 | 2026-09-24 | Metered-usage cents ($0.03–0.04 Copilot overage) triggered the billing flag; support draft provided | Accepted | account, CI |
 | ADR-013 | 2026-09-24 | Billing-failure flag explains the CI block; clear via billing support, pay nothing | Accepted | account, CI |
@@ -73,6 +74,15 @@
 <!-- Newest decisions go at the top of this section. Keep this section growing — it is
      the living memory of the project. Delete the two example entries below once you
      have real decisions. -->
+
+### ADR-016: Phase 2 — subscriptions depth, repo-backed search/notifications, account cleanup
+- **Date**: 2026-09-24
+- **Status**: Accepted
+- **Context**: Approved full Phase 2 on `feature/water-phase2` (branched off Phase 1). Needed: order-type choice, subscription config/mgmt/progress, account additions, real search, water notifications.
+- **Decision**: New `order_type` route (one-time/regular cards) fed by details Continue; `subscription_config` (frequency radio + native date/time pickers) → cart preselected regular; `subscriptions` screen (progress header, pause/resume, skip-next, modify sheet) over `Subscription.copyWith` + local state; `payment_methods` screen replaces the dead `emptyPayment` route; search rewritten on `ProductRepository.search` with grid + empty state (no fashion filters); notifications as mock water list; profile swaps Returns/Wishlist/fashion banner for Regular Deliveries/Payment Methods/water banner. Cart accepts `{productId, qty, orderType}` map args.
+- **Why**: Every screen reuses existing widgets/routes patterns (RadioGroup, ProductCard, ProductQuantity, bottom sheets); subscription state stays local until backend owns it; no new dependencies.
+- **Consequences**: CI green (Analyze/Test/Build). Still TODO: merge PR #1, unique applicationId, upload key, onboarding/auth cleanup, real photos.
+- **Affects**: `lib/screens/{order_type,subscription,payment,search,notification,profile,checkout,product}`, router, CI run 35966934093
 
 ### ADR-015: Tag-in/APK-out releases; lint-zero instead of gate relaxation
 - **Date**: 2026-09-24
