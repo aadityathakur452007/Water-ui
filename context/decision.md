@@ -35,6 +35,7 @@
 
 | ID | Date | Decision | Status | Affects |
 |----|------|----------|--------|---------|
+| ADR-015 | 2026-09-24 | Tag-driven releases (softprops), keystore wiring, lint-zero via dart fix | Accepted | .github/workflows/release.yml, android/, lib/ |
 | ADR-014 | 2026-09-24 | Metered-usage cents ($0.03–0.04 Copilot overage) triggered the billing flag; support draft provided | Accepted | account, CI |
 | ADR-013 | 2026-09-24 | Billing-failure flag explains the CI block; clear via billing support, pay nothing | Accepted | account, CI |
 | ADR-012 | 2026-09-24 | Billing page is not a charge; support ticket is the unblock path (no card, no repo hack) | Accepted | account, CI |
@@ -72,6 +73,16 @@
 <!-- Newest decisions go at the top of this section. Keep this section growing — it is
      the living memory of the project. Delete the two example entries below once you
      have real decisions. -->
+
+### ADR-015: Tag-in/APK-out releases; lint-zero instead of gate relaxation
+- **Date**: 2026-09-24
+- **Status**: Accepted
+- **Context**: No Release page existed; CI analyze failed only on 42 pre-existing infos (plain `flutter analyze` treats infos as fatal — my local gate misread this earlier); Android pins (Gradle 7.6/A GP 7.3/Kotlin 1.7) predated the SDK and broke `:gradle:compileKotlin` ("language version 1.4 unsupported").
+- **Options considered**: Keep `--no-fatal-infos` (masks real warnings — rejected after seeing it hide signal); hand-edit 42 spots (slow — rejected); `dart fix --apply` (29 auto) + 13 hand SvgPicture `colorFilter` fixes (chosen). For release: Firebase App Distribution / Play internal track (needs accounts/secrets — deferred); tag-driven `release.yml` with softprops/action-gh-release@v2 + optional keystore secrets (chosen).
+- **Decision**: `release.yml` (tags `v*` + dispatch): fresh build → optional upload-key signing via `key.properties` wiring (debug fallback) → versioned APK+AAB+SHA256 → GitHub Release (prerelease when tag contains `-`). Toolchain bumped to the SDK template's own baseline (Gradle 9.1, AGP 9.0.1, Kotlin 2.3.20, Java 17), Groovy kept. CI back to strict `flutter analyze`. First release `v1.0.0-phase1` published with installable APK.
+- **Why**: Releases rebuild from source+tag (never recycled artifacts); keystore secrets stay optional so local `flutter run --release` keeps working; template pins are the only version set guaranteed compatible with Flutter 3.44.
+- **Consequences**: Current APK is debug-signed (installable, not Play-ready). Still TODO: unique `applicationId`, upload key generation, merge PR #1, delete probe/old folders.
+- **Affects**: `.github/workflows/`, `android/`, 20 lib files (mechanical deprecation fixes)
 
 ### ADR-014: $0.04 metered overage caused the billing flag; support draft sent to user
 - **Date**: 2026-09-24

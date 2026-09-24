@@ -223,6 +223,9 @@ push(main, feature/**) / PR→main / dispatch
   pipeline code verified locally, awaiting GitHub-side unblock.
 - 2026-09-24 update: email verified, billing ruled out per docs (Free quota
   untouched, no card → cannot be charged). Next: user files support ticket.
+- Release flow: `git tag vX.Y.Z(-suffix) && git push origin tag` → Release job
+  (fresh build → optional keystore sign → versioned APK/AAB/SHA256 → Release page).
+  First release `v1.0.0-phase1` live with installable APK.
 
 ---
 
