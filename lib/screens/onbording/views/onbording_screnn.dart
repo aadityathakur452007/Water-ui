@@ -20,36 +20,37 @@ class _OnBordingScreenState extends State<OnBordingScreen> {
     Onbord(
       image: "assets/Illustration/Illustration-0.png",
       imageDarkTheme: "assets/Illustration/Illustration_darkTheme_0.png",
-      title: "Find the item you’ve \nbeen looking for",
+      title: "Pure drinking water \nfor your family",
       description:
-          "Here you’ll see rich varieties of goods, carefully classified for seamless browsing experience.",
+          "Browse purified 20L cans, bottles and refills from trusted suppliers near you in Bhopal.",
     ),
     Onbord(
       image: "assets/Illustration/Illustration-1.png",
       imageDarkTheme: "assets/Illustration/Illustration_darkTheme_1.png",
-      title: "Get those shopping \nbags filled",
+      title: "Fill your cans, \nnever run dry",
       description:
-          "Add any item you want to your cart, or save it on your wishlist, so you don’t miss it in your future purchases.",
+          "Add cans or bottles to your order and schedule refills, so your home and office never run out of water.",
     ),
     Onbord(
       image: "assets/Illustration/Illustration-2.png",
       imageDarkTheme: "assets/Illustration/Illustration_darkTheme_2.png",
-      title: "Fast & secure \npayment",
-      description: "There are many payment options available for your ease.",
+      title: "Easy & secure \npayment",
+      description:
+          "Pay by UPI, cards, or cash on delivery — whatever suits you.",
     ),
     Onbord(
       image: "assets/Illustration/Illustration-3.png",
       imageDarkTheme: "assets/Illustration/Illustration_darkTheme_3.png",
-      title: "Package tracking",
+      title: "Live delivery tracking",
       description:
-          "In particular, Shoplon can pack your orders, and help you seamlessly manage your shipments.",
+          "Track your water delivery live, from the RO plant to your doorstep.",
     ),
     Onbord(
       image: "assets/Illustration/Illustration-4.png",
       imageDarkTheme: "assets/Illustration/Illustration_darkTheme_4.png",
-      title: "Nearby stores",
+      title: "Nearby RO plants",
       description:
-          "Easily track nearby shops, browse through their items and get information about their prodcuts.",
+          "Easily find trusted RO plants near you and compare cans and refill options.",
     ),
   ];
 

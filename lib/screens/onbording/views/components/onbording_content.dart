@@ -36,9 +36,9 @@ class OnbordingContent extends StatelessWidget {
         if (!isTextOnTop) const Spacer(),
         if (!isTextOnTop)
           const OnbordTitleDescription(
-            title: "Find the item you’ve \nbeen looking for",
+            title: "Pure drinking water \nfor your family",
             description:
-                "Here you’ll see rich varieties of goods, carefully classified for seamless browsing experience.",
+                "Browse purified 20L cans, bottles and refills from trusted suppliers near you in Bhopal.",
           ),
 
         const Spacer(),

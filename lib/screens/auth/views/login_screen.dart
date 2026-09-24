@@ -37,7 +37,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: defaultPadding / 2),
                   const Text(
-                    "Log in with your data that you intered during your registration.",
+                    "Log in to order pure drinking water delivered to your home.",
                   ),
                   const SizedBox(height: defaultPadding),
                   LogInForm(formKey: _formKey),

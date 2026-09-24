@@ -33,12 +33,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "Let’s get started!",
+                    "Let’s get you hydrated!",
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
                   const SizedBox(height: defaultPadding / 2),
                   const Text(
-                    "Please enter your valid data in order to create an account.",
+                    "Enter your details to order 20L cans and bottles near you.",
                   ),
                   const SizedBox(height: defaultPadding),
                   SignUpForm(formKey: _formKey),

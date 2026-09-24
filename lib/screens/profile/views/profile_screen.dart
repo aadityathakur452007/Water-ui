@@ -7,6 +7,12 @@ import 'package:shop/route/screen_export.dart';
 import 'components/profile_card.dart';
 import 'components/profile_menu_item_list_tile.dart';
 
+void _showComingSoon(BuildContext context) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('Coming soon')),
+  );
+}
+
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
@@ -149,7 +155,7 @@ class ProfileScreen extends StatelessWidget {
             text: "Language",
             svgSrc: "assets/icons/Language.svg",
             press: () {
-              Navigator.pushNamed(context, selectLanguageScreenRoute);
+              _showComingSoon(context);
             },
           ),
           ProfileMenuListTile(
@@ -170,7 +176,7 @@ class ProfileScreen extends StatelessWidget {
             text: "Get Help",
             svgSrc: "assets/icons/Help.svg",
             press: () {
-              Navigator.pushNamed(context, getHelpScreenRoute);
+              _showComingSoon(context);
             },
           ),
           ProfileMenuListTile(
