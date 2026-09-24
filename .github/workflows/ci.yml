@@ -14,7 +14,7 @@
 #
 # Toolchain pins (verified 2026-09-24 against upstream tags + compat tables):
 #   - actions/checkout@v7, setup-java@v6 (temurin 17), upload-artifact@v7
-#   - gradle/actions/setup-gradle@v2, subosito/flutter-action@v2
+#   - gradle/actions/setup-gradle@v6, subosito/flutter-action@v2
 #   - Flutter 3.44.9 (== local toolchain), Java 17 (AGP 7.3 + Gradle 7.6.3
 #     run on 17; AGP 9.x also floors at 17, so this survives upgrades)
 # Dependabot (.github/dependabot.yml) keeps the action pins fresh.
@@ -103,7 +103,7 @@ jobs:
           check-latest: true
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v2
+        uses: gradle/actions/setup-gradle@v6
         with:
           # PRs read main's cache but never overwrite it.
           cache-read-only: ${{ github.event_name == 'pull_request' }}
