@@ -2,6 +2,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:shop/screens/auth/views/components/sign_up_form.dart';
 import 'package:shop/route/route_constants.dart';
+import 'package:shop/services/api_client.dart';
+import 'package:shop/services/session_store.dart';
 
 import '../../../constants.dart';
 
@@ -14,6 +16,62 @@ class SignUpScreen extends StatefulWidget {
 
 class _SignUpScreenState extends State<SignUpScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _name = TextEditingController();
+  final _phone = TextEditingController();
+  final _email = TextEditingController();
+  final _password = TextEditingController();
+  bool _agreed = false;
+  bool _busy = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _phone.dispose();
+    _email.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
+  Future<void> _signUp() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (!_agreed) {
+      setState(() => _error = 'Please accept the Terms to continue.');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final api = ApiClient();
+      final res = await api.post('/api/auth/register', body: {
+        'name': _name.text.trim(),
+        'phone': _phone.text.trim(),
+        'email': _email.text.trim(),
+        'password': _password.text,
+      });
+      final map = Map<String, dynamic>.from(res as Map);
+      final token = map['token']?.toString() ?? '';
+      final user = map['user'] is Map
+          ? Map<String, dynamic>.from(map['user'] as Map)
+          : <String, dynamic>{};
+      if (token.isEmpty) throw const AppException('UNKNOWN', 'No token');
+      await const SessionStore().saveSession(token: token, user: user);
+      if (!mounted) return;
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        entryPointScreenRoute,
+        (_) => false,
+      );
+    } on AppException catch (e) {
+      setState(() => _error = e.message);
+    } catch (_) {
+      setState(() => _error = 'Could not sign up. Check connection.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,13 +99,20 @@ class _SignUpScreenState extends State<SignUpScreen> {
                     "Enter your details to order 20L cans and bottles near you.",
                   ),
                   const SizedBox(height: defaultPadding),
-                  SignUpForm(formKey: _formKey),
+                  SignUpForm(
+                    formKey: _formKey,
+                    nameController: _name,
+                    phoneController: _phone,
+                    emailController: _email,
+                    passwordController: _password,
+                  ),
                   const SizedBox(height: defaultPadding),
                   Row(
                     children: [
                       Checkbox(
-                        onChanged: (value) {},
-                        value: false,
+                        value: _agreed,
+                        onChanged: (value) =>
+                            setState(() => _agreed = value ?? false),
                       ),
                       Expanded(
                         child: Text.rich(
@@ -75,15 +140,26 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       )
                     ],
                   ),
+                  if (_error != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      _error!,
+                      style: const TextStyle(color: errorColor),
+                    ),
+                  ],
                   const SizedBox(height: defaultPadding * 2),
                   ElevatedButton(
-                    onPressed: () {
-                      // There is 2 more screens while user complete their profile
-                      // afre sign up, it's available on the pro version get it now
-                      // 🔗 https://theflutterway.gumroad.com/l/fluttershop
-                      Navigator.pushNamed(context, entryPointScreenRoute);
-                    },
-                    child: const Text("Continue"),
+                    onPressed: _busy ? null : _signUp,
+                    child: _busy
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text("Continue"),
                   ),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,

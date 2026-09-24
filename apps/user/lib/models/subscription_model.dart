@@ -57,6 +57,59 @@ class Subscription {
       nextDelivery: nextDelivery ?? this.nextDelivery,
     );
   }
+
+  /// Parses the backend subscription row:
+  /// `{id,product_id,quantity,frequency,start_date,delivery_time,
+  /// status,next_delivery}`. No user-facing endpoint ships in the frozen
+  /// contract yet — this exists so the repository can adopt one without
+  /// touching call sites.
+  factory Subscription.fromJson(Map<String, dynamic> json) {
+    return Subscription(
+      id: json['id']?.toString() ?? '',
+      productId: json['product_id']?.toString() ??
+          json['productId']?.toString() ??
+          '',
+      productName: json['product_name']?.toString() ??
+          json['productName']?.toString() ??
+          json['product_id']?.toString() ??
+          '',
+      quantity: (json['quantity'] as num?)?.toInt() ?? 1,
+      frequency: parseFrequency(json['frequency']?.toString()),
+      startDate: json['start_date']?.toString() ??
+          json['startDate']?.toString() ??
+          '',
+      deliveryTime: json['delivery_time']?.toString() ??
+          json['deliveryTime']?.toString() ??
+          '',
+      status: parseSubscriptionStatus(json['status']?.toString()),
+      nextDelivery: json['next_delivery']?.toString() ??
+          json['nextDelivery']?.toString() ??
+          '',
+    );
+  }
+}
+
+Frequency parseFrequency(String? raw) {
+  switch (raw?.toLowerCase()) {
+    case 'alternatedays':
+    case 'alternate_days':
+      return Frequency.alternateDays;
+    case 'specificdays':
+    case 'specific_days':
+      return Frequency.specificDays;
+    case 'weekly':
+    case 'once_a_week':
+      return Frequency.weekly;
+    default:
+      return Frequency.everyDay;
+  }
+}
+
+SubscriptionStatus parseSubscriptionStatus(String? raw) {
+  if (raw != null && raw.toLowerCase() == 'paused') {
+    return SubscriptionStatus.paused;
+  }
+  return SubscriptionStatus.active;
 }
 
 class DeliveryProgress {

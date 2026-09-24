@@ -94,6 +94,46 @@ jobs:
       - run: flutter pub get
       - run: flutter test
 
+  backend:
+    name: Backend API + live smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install --frozen-lockfile
+      - run: bun run check
+
+      - name: Boot API and smoke-test the contract
+        run: |
+          set -e
+          DB_PATH="$RUNNER_TEMP/water-ci.db" PORT=3101 bun run src/index.ts &
+          SRV=$!
+          trap "kill $SRV" EXIT
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3101/api/products >/dev/null && break
+            sleep 1
+          done
+          curl -sf http://localhost:3101/api/products | grep -q '"wd-20l"'
+          TOKEN=$(curl -sf -X POST http://localhost:3101/api/auth/login \
+            -H 'Content-Type: application/json' \
+            -d '{"phone":"9000000001","password":"Vendor@123"}' \
+            | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
+          test -n "$TOKEN"
+          ORDERS=$(curl -sf http://localhost:3101/api/vendor/orders \
+            -H "Authorization: Bearer $TOKEN")
+          echo "$ORDERS" | grep -qv '"phone"'
+          echo "$ORDERS" | grep -qv '"email"'
+          echo "smoke OK"
+
   build-android:
     name: Build Android (APK + AAB)
     runs-on: ubuntu-latest
@@ -101,8 +141,7 @@ jobs:
     defaults:
       run:
         working-directory: apps/user
-    steps:
-      - uses: actions/checkout@v7
+    steps:      - uses: actions/checkout@v7
 
       - name: Set up Java
         uses: actions/setup-java@v6

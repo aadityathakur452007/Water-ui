@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_ui_collection/flutter_ui_collection.dart';
 import 'package:shop/components/custom_modal_bottom_sheet.dart';
+import 'package:shop/components/skleton/skelton.dart';
 import 'package:shop/constants.dart';
 import 'package:shop/models/cart_model.dart';
 import 'package:shop/models/subscription_model.dart';
@@ -13,9 +15,24 @@ const _freqLabels = {
   Frequency.weekly: "Once a Week",
 };
 
+/// Water-blue tokens scoped ONLY to the library stat/progress widgets.
+UiThemeData _waterUiTheme() {
+  final base = MinimalTheme.light;
+  return base.copyWith(
+    colorScheme: base.colorScheme.copyWith(
+      primary: primaryColor,
+      success: successColor,
+      error: errorColor,
+    ),
+    useGlow: false,
+    useGradients: false,
+    useShadows: false,
+  );
+}
+
 /// My Regular Deliveries: progress summary + per-subscription
-/// pause / skip / modify. Local state over mock repository data
-/// (backend owns this once integrated).
+/// pause / skip / modify. Local data over the repository
+/// (no user-facing subscription endpoint in the frozen contract).
 class SubscriptionsScreen extends StatefulWidget {
   const SubscriptionsScreen({super.key});
 
@@ -25,28 +42,84 @@ class SubscriptionsScreen extends StatefulWidget {
 
 class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
   final _repo = const SubscriptionRepository();
-  final List<Subscription> _subs =
-      const SubscriptionRepository().subscriptions();
+  List<Subscription>? _subs;
+  Future<List<Subscription>>? _future;
   final Set<String> _skipped = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _repo.fetchSubscriptions();
+  }
 
   @override
   Widget build(BuildContext context) {
     final progress = _repo.septemberProgress();
     return Scaffold(
       appBar: AppBar(title: const Text("My Regular Deliveries")),
-      body: ListView(
-        padding: const EdgeInsets.all(defaultPadding),
-        children: [
-          _ProgressCard(progress: progress),
-          const SizedBox(height: defaultPadding),
-          if (_subs.isEmpty)
-            const Center(
-                child: Padding(
-              padding: EdgeInsets.all(defaultPadding * 2),
-              child: Text("No regular deliveries yet"),
-            )),
-          ..._subs.map(_subCard),
-        ],
+      body: FutureBuilder<List<Subscription>>(
+        future: _future,
+        builder: (context, snap) {
+          if (snap.connectionState == ConnectionState.waiting &&
+              _subs == null) {
+            return ListView(
+              padding: const EdgeInsets.all(defaultPadding),
+              children: const [
+                Skeleton(height: 140),
+                SizedBox(height: defaultPadding),
+                Skeleton(height: 160),
+              ],
+            );
+          }
+          if (snap.hasError && _subs == null) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(defaultPadding * 1.5),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      "Could not load deliveries.",
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "Check your connection and try again.",
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: defaultPadding),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size(0, 36),
+                      ),
+                      onPressed: () => setState(
+                          () => _future = _repo.fetchSubscriptions()),
+                      child: const Text("Retry"),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+          if (snap.hasData && _subs == null) {
+            _subs = List<Subscription>.from(snap.data!);
+          }
+          final subs = _subs ?? const <Subscription>[];
+          return ListView(
+            padding: const EdgeInsets.all(defaultPadding),
+            children: [
+              _ProgressCard(progress: progress),
+              const SizedBox(height: defaultPadding),
+              if (subs.isEmpty)
+                const Center(
+                    child: Padding(
+                  padding: EdgeInsets.all(defaultPadding * 2),
+                  child: Text("No regular deliveries yet"),
+                )),
+              ...subs.map(_subCard),
+            ],
+          );
+        },
       ),
     );
   }
@@ -99,8 +172,8 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
               ),
               OutlinedButton(
                 onPressed: () => setState(() {
-                  final i = _subs.indexOf(sub);
-                  _subs[i] = sub.copyWith(
+                  final i = _subs!.indexOf(sub);
+                  _subs![i] = sub.copyWith(
                     status: paused
                         ? SubscriptionStatus.active
                         : SubscriptionStatus.paused,
@@ -166,8 +239,8 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                 child: ElevatedButton(
                   onPressed: () {
                     setState(() {
-                      final i = _subs.indexOf(sub);
-                      _subs[i] =
+                      final i = _subs!.indexOf(sub);
+                      _subs![i] =
                           sub.copyWith(quantity: qty, frequency: freq);
                     });
                     Navigator.pop(context);
@@ -215,6 +288,9 @@ class _ProgressCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final done = progress.total == 0
+        ? 0.0
+        : progress.delivered / progress.total;
     return Container(
       padding: const EdgeInsets.all(defaultPadding),
       decoration: const BoxDecoration(
@@ -231,13 +307,29 @@ class _ProgressCard extends StatelessWidget {
                   .titleSmall!
                   .copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _stat(context, "Delivered", "${progress.delivered}"),
-              _stat(context, "Scheduled", "${progress.scheduled}"),
-              _stat(context, "Skipped", "${progress.skipped}"),
-            ],
+          // Library stat + progress displays (water-blue tokens above).
+          UiTheme(
+            data: _waterUiTheme(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    UiStat(
+                        label: "Delivered",
+                        value: "${progress.delivered}"),
+                    UiStat(
+                        label: "Scheduled",
+                        value: "${progress.scheduled}"),
+                    UiStat(
+                        label: "Skipped", value: "${progress.skipped}"),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                UiProgressBar(value: done, showLabel: true),
+              ],
+            ),
           ),
           const SizedBox(height: 8),
           Text(
@@ -246,20 +338,6 @@ class _ProgressCard extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _stat(BuildContext context, String label, String value) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(value,
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium!
-                .copyWith(fontWeight: FontWeight.w700)),
-        Text(label, style: Theme.of(context).textTheme.bodyMedium),
-      ],
     );
   }
 }

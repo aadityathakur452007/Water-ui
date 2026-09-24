@@ -1,0 +1,13 @@
+services:
+  api:
+    build: ./backend
+    ports:
+      - "3000:3000"
+    environment:
+      DB_PATH: /data/water.db
+    volumes:
+      - water-data:/data
+    restart: unless-stopped
+
+volumes:
+  water-data:

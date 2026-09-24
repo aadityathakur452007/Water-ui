@@ -27,6 +27,35 @@ class ProductModel {
   });
 
   String get priceLabel => "₹${price.toStringAsFixed(price % 1 == 0 ? 0 : 2)}";
+
+  /// Parses the backend product shape:
+  /// `{id,name,capacity,unit,container,water_type,price,image,available}`.
+  factory ProductModel.fromJson(Map<String, dynamic> json) {
+    final unit = json['unit']?.toString() ?? 'jar';
+    final rawAvailable = json['available'];
+    final available = rawAvailable is bool
+        ? rawAvailable
+        : rawAvailable is num
+            ? rawAvailable != 0
+            : true;
+    return ProductModel(
+      id: json['id']?.toString() ?? '',
+      image: json['image']?.toString() ??
+          (unit == 'pack' ? waterBottleImg : waterJarImg),
+      brandName: json['capacity']?.toString() ??
+          json['brandName']?.toString() ??
+          unit,
+      title: json['name']?.toString() ?? json['title']?.toString() ?? unit,
+      price: (json['price'] as num?)?.toDouble() ?? 0,
+      capacity: json['capacity']?.toString() ?? '',
+      unit: unit,
+      container: json['container']?.toString() ?? '',
+      waterType: json['water_type']?.toString() ??
+          json['waterType']?.toString() ??
+          'Drinking Water',
+      available: available,
+    );
+  }
 }
 
 const String waterJarImg = "assets/icons/water_jar.svg";

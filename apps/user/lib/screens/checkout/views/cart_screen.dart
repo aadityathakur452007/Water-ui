@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shop/components/cart_button.dart';
+import 'package:shop/components/network_image_with_loader.dart';
 import 'package:shop/constants.dart';
 import 'package:shop/models/cart_model.dart';
 import 'package:shop/models/order_model.dart';
 import 'package:shop/repositories/order_repository.dart';
 import 'package:shop/repositories/product_repository.dart';
 import 'package:shop/route/route_constants.dart';
+import 'package:shop/services/api_client.dart';
 
 enum _Payment { cod, upi }
 
@@ -26,6 +28,7 @@ class _CartScreenState extends State<CartScreen> {
   OrderType _orderType = OrderType.oneTime;
   _Payment _payment = _Payment.cod;
   Order? _placed;
+  bool _placing = false;
 
   @override
   void didChangeDependencies() {
@@ -64,6 +67,42 @@ class _CartScreenState extends State<CartScreen> {
       ? "Today • 8:00 AM"
       : "Every Day • 8:00 AM";
 
+  Future<void> _placeOrder() async {
+    if (_items.isEmpty || _placing) return;
+    setState(() => _placing = true);
+    final lines = _items
+        .map((e) => OrderItem(
+              productId: e.product.id,
+              name: e.product.title,
+              qty: e.qty,
+              price: e.product.price,
+            ))
+        .toList();
+    try {
+      // Real API first (`POST /api/orders`); offline falls back to the
+      // local confirmation so checkout still demonstrates the flow.
+      final remote = await _orders.createOrder(
+        items: lines,
+        slot: _slot,
+        orderType: _orderType,
+      );
+      if (mounted) setState(() => _placed = remote);
+    } on AppException {
+      if (mounted) {
+        setState(() {
+          _placed = _orders.placeOrder(
+            items: lines,
+            total: _total,
+            orderType: _orderType,
+            deliverySlot: _slot,
+          );
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _placing = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_placed != null) return _SuccessView(order: _placed!);
@@ -71,27 +110,9 @@ class _CartScreenState extends State<CartScreen> {
       appBar: AppBar(title: const Text("Checkout")),
       bottomNavigationBar: CartButton(
         price: _total,
-        title: "Place Order",
+        title: _placing ? "Placing..." : "Place Order",
         subTitle: "Total amount",
-        press: _items.isEmpty
-            ? () {}
-            : () {
-                setState(() {
-                  _placed = _orders.placeOrder(
-                    items: _items
-                        .map((e) => OrderItem(
-                              productId: e.product.id,
-                              name: e.product.title,
-                              qty: e.qty,
-                              price: e.product.price,
-                            ))
-                        .toList(),
-                    total: _total,
-                    orderType: _orderType,
-                    deliverySlot: _slot,
-                  );
-                });
-              },
+        press: _items.isEmpty ? () {} : _placeOrder,
       ),
       body: ListView(
         padding: const EdgeInsets.all(defaultPadding),
@@ -193,6 +214,15 @@ class _CartScreenState extends State<CartScreen> {
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
+          SizedBox(
+            height: 48,
+            width: 48,
+            child: NetworkImageWithLoader(
+              item.product.image,
+              radius: defaultBorderRadious / 2,
+            ),
+          ),
+          const SizedBox(width: defaultPadding / 2),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

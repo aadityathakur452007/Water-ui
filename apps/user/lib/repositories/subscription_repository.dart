@@ -1,7 +1,16 @@
 import '../models/subscription_model.dart';
+import '../services/api_client.dart';
+import '../services/session_store.dart';
 
-/// Local/mock subscription source for the Home "active delivery"
-/// card and (Phase 2) subscription management.
+/// Subscription source for the Home "active delivery" card and
+/// subscription management.
+///
+/// NOTE: the frozen contract + backend ship NO user-facing subscription
+/// endpoints (only `GET /api/vendor/subscriptions`, role=vendor, PII
+/// stripped). So this repository stays local-only on purpose — no
+/// speculative endpoints are invented. [fetchSubscriptions] returns the
+/// local list through the same async shape the UI uses, so adopting a
+/// future `GET /api/subscriptions` is a one-body change.
 class SubscriptionRepository {
   const SubscriptionRepository();
 
@@ -27,4 +36,14 @@ class SubscriptionRepository {
         skipped: 2,
         amountPaid: 1080,
       );
+
+  /// Async accessor matching the UI's loading/error/empty pattern.
+  /// Returns the local list; kept async so a future contract endpoint
+  /// slots in without touching call sites.
+  Future<List<Subscription>> fetchSubscriptions({ApiClient? client}) async {
+    if (client?.token != null) {
+      await const SessionStore().readToken();
+    }
+    return subscriptions();
+  }
 }

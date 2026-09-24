@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shop/constants.dart';
 import 'package:shop/entry_point.dart';
 
 import 'screen_export.dart';
@@ -336,8 +337,61 @@ Route<dynamic> generateRoute(RouteSettings settings) {
     //   );
     default:
       return MaterialPageRoute(
-        // Make a screen for undefine
-        builder: (context) => const OnBordingScreen(),
+        builder: (context) => const NotFoundScreen(),
       );
   }
+}
+
+/// Simple 404: title + why + back-home action. No gradients, no
+/// glassmorphism — plain theme text + primary button.
+class NotFoundScreen extends StatelessWidget {
+  const NotFoundScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Not found")),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(defaultPadding * 1.5),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Page not found",
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                "This page is not available. Check the address or go back home.",
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: defaultPadding),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    entryPointScreenRoute,
+                    (_) => false,
+                  ),
+                  child: const Text("Back Home"),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// MaterialApp `onUnknownRoute` — handles pushes to names that
+/// [generateRoute] does not know (generateRoute's default above covers
+/// the rest).
+Route<dynamic> onUnknownRoute(RouteSettings settings) {
+  return MaterialPageRoute(
+    settings: settings,
+    builder: (context) => const NotFoundScreen(),
+  );
 }

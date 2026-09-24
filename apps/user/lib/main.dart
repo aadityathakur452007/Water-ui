@@ -23,6 +23,7 @@ class MyApp extends StatelessWidget {
       // Dark theme is inclided in the Full template
       themeMode: ThemeMode.light,
       onGenerateRoute: router.generateRoute,
+      onUnknownRoute: router.onUnknownRoute,
       initialRoute: onbordingScreenRoute,
     );
   }

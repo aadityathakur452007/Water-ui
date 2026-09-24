@@ -1,17 +1,74 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_ui_collection/flutter_ui_collection.dart';
 import 'package:shop/components/custom_modal_bottom_sheet.dart';
-import 'package:shop/components/order_process.dart';
+import 'package:shop/components/skleton/skelton.dart';
 import 'package:shop/constants.dart';
 import 'package:shop/models/cart_model.dart';
 import 'package:shop/models/order_model.dart';
 import 'package:shop/repositories/order_repository.dart';
+import 'package:shop/services/api_client.dart';
 
-class OrdersScreen extends StatelessWidget {
+/// Water-blue tokens scoped ONLY to the library timeline widget.
+/// The app keeps its Material theme; this wrapper just satisfies
+/// `UiTheme.of` with flat, glow-free, gradient-free values.
+UiThemeData _waterUiTheme() {
+  final base = MinimalTheme.light;
+  return base.copyWith(
+    colorScheme: base.colorScheme.copyWith(
+      primary: primaryColor,
+      success: successColor,
+      error: errorColor,
+    ),
+    useGlow: false,
+    useGradients: false,
+    useShadows: false,
+  );
+}
+
+class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
 
   @override
+  State<OrdersScreen> createState() => _OrdersScreenState();
+}
+
+class _OrdersScreenState extends State<OrdersScreen> {
+  final _repo = const OrderRepository();
+  Future<({List<Order> ongoing, List<Order> past})>? _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _load();
+  }
+
+  Future<({List<Order> ongoing, List<Order> past})> _load() async {
+    try {
+      final remote = await _repo.fetchOrders();
+      return _split(remote);
+    } on AppException {
+      // Backend unreachable / logged out: show the bundled demo orders
+      // so the screen still demonstrates ongoing vs past.
+      return (ongoing: _repo.ongoing(), past: _repo.past());
+    }
+  }
+
+  static ({List<Order> ongoing, List<Order> past}) _split(List<Order> all) {
+    final ongoing = <Order>[];
+    final past = <Order>[];
+    for (final o in all) {
+      if (o.status == OrderStatus.scheduled ||
+          o.status == OrderStatus.active) {
+        ongoing.add(o);
+      } else {
+        past.add(o);
+      }
+    }
+    return (ongoing: ongoing, past: past);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    const repo = OrderRepository();
     return DefaultTabController(
       length: 2,
       child: Scaffold(
@@ -21,11 +78,58 @@ class OrdersScreen extends StatelessWidget {
             tabs: [Tab(text: "ONGOING"), Tab(text: "PAST")],
           ),
         ),
-        body: TabBarView(
-          children: [
-            _OrderList(orders: repo.ongoing()),
-            _OrderList(orders: repo.past()),
-          ],
+        body: FutureBuilder<({List<Order> ongoing, List<Order> past})>(
+          future: _future,
+          builder: (context, snap) {
+            if (snap.connectionState == ConnectionState.waiting) {
+              return ListView.builder(
+                padding: const EdgeInsets.all(defaultPadding),
+                itemCount: 3,
+                itemBuilder: (context, _) => const Padding(
+                  padding: EdgeInsets.only(bottom: defaultPadding),
+                  child: Skeleton(height: 120),
+                ),
+              );
+            }
+            if (snap.hasError) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(defaultPadding * 1.5),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        "Could not load orders.",
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "Check your connection and try again.",
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      const SizedBox(height: defaultPadding),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size(0, 36),
+                        ),
+                        onPressed: () =>
+                            setState(() => _future = _load()),
+                        child: const Text("Retry"),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+            final data = snap.data ??
+                (ongoing: const <Order>[], past: const <Order>[]);
+            return TabBarView(
+              children: [
+                _OrderList(orders: data.ongoing),
+                _OrderList(orders: data.past),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -135,9 +239,6 @@ class _OrderDetailSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool delivered = order.status == OrderStatus.delivered;
-    final bool cancelled = order.status == OrderStatus.cancelled ||
-        order.status == OrderStatus.notDelivered;
     return Padding(
       padding: const EdgeInsets.all(defaultPadding * 1.5),
       child: Column(
@@ -151,28 +252,46 @@ class _OrderDetailSheet extends StatelessWidget {
                   .copyWith(fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
           Text(order.itemsSummary),
-          Text(
-              "${inr(order.totalAmount)} · ${order.deliverySlot}"),
+          Text("${inr(order.totalAmount)} · ${order.deliverySlot}"),
           const SizedBox(height: defaultPadding),
-          OrderProgress(
-            orderStatus: OrderProcessStatus.done,
-            processingStatus: OrderProcessStatus.done,
-            packedStatus: delivered || !cancelled
-                ? OrderProcessStatus.done
-                : OrderProcessStatus.notDoneYeat,
-            shippedStatus: delivered
-                ? OrderProcessStatus.done
-                : cancelled
-                    ? OrderProcessStatus.error
-                    : OrderProcessStatus.processing,
-            deliveredStatus: delivered
-                ? OrderProcessStatus.done
-                : OrderProcessStatus.notDoneYeat,
-            isCanceled: cancelled,
+          // Library timeline (water-blue tokens above) — replaces the
+          // bespoke dot-row so tracking stays consistent.
+          UiTheme(
+            data: _waterUiTheme(),
+            child: UiTimeline(items: _timelineItems(order)),
           ),
           const SizedBox(height: defaultPadding),
         ],
       ),
     );
+  }
+
+  static List<UiTimelineItem> _timelineItems(Order order) {
+    final cancelled = order.status == OrderStatus.cancelled ||
+        order.status == OrderStatus.notDelivered;
+    if (cancelled) {
+      return const [
+        UiTimelineItem(title: 'Ordered', subtitle: 'Confirmed'),
+        UiTimelineItem(
+          title: 'Cancelled',
+          subtitle: 'This order was cancelled',
+          color: errorColor,
+        ),
+      ];
+    }
+    const steps = ['Ordered', 'Packed', 'Shipped', 'Delivered'];
+    final doneThrough = switch (order.status) {
+      OrderStatus.delivered => 4,
+      OrderStatus.active => 2,
+      _ => 1,
+    };
+    return [
+      for (int i = 0; i < steps.length; i++)
+        UiTimelineItem(
+          title: steps[i],
+          subtitle: i < doneThrough ? 'Done' : 'Pending',
+          color: i < doneThrough ? primaryColor : blackColor20,
+        ),
+    ];
   }
 }

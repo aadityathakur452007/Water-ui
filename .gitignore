@@ -9,6 +9,12 @@
 .history
 .svn/
 
+# Backend (Bun + SQLite)
+node_modules/
+*.db
+*.db-journal
+.env
+
 # IntelliJ related
 *.iml
 *.ipr
