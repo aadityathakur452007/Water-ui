@@ -35,6 +35,7 @@
 
 | ID | Date | Decision | Status | Affects |
 |----|------|----------|--------|---------|
+| ADR-017 | 2026-09-24 | Every commit auto-publishes rolling `latest` prerelease; tags stay immutable | Accepted | .github/workflows/release.yml |
 | ADR-016 | 2026-09-24 | Phase 2 on feature/water-phase2: order-type, subscriptions, search, notifications, account | Accepted | lib/screens, lib/route, CI |
 | ADR-015 | 2026-09-24 | Tag-driven releases (softprops), keystore wiring, lint-zero via dart fix | Accepted | .github/workflows/release.yml, android/, lib/ |
 | ADR-014 | 2026-09-24 | Metered-usage cents ($0.03–0.04 Copilot overage) triggered the billing flag; support draft provided | Accepted | account, CI |
@@ -74,6 +75,15 @@
 <!-- Newest decisions go at the top of this section. Keep this section growing — it is
      the living memory of the project. Delete the two example entries below once you
      have real decisions. -->
+
+### ADR-017: Rolling `latest` release on every commit — zero manual tagging
+- **Date**: 2026-09-24
+- **Status**: Accepted
+- **Context**: User refused manual per-commit tagging; wants commit → built → tagged → Release page, automatically.
+- **Decision**: `release.yml` also triggers on pushes to main/feature/**. Branch commits rebuild and force-move a rolling `latest` prerelease (gh CLI: delete, retag, recreate with APK+AAB+SHA256). Tag pushes keep the immutable softprops path. Concurrency cancels superseded runs so rapid commits don't race.
+- **Why**: Release page is always installable from the newest commit; versioned tags remain the immutable record. Verified live: push 005a806 auto-fired CI + Release, `latest` published with all 3 assets.
+- **Consequences**: Every commit costs one ~4-min release build. `latest` is mutable by design; `v*` tags stay immutable.
+- **Affects**: `.github/workflows/release.yml`
 
 ### ADR-016: Phase 2 — subscriptions depth, repo-backed search/notifications, account cleanup
 - **Date**: 2026-09-24

@@ -229,6 +229,8 @@ push(main, feature/**) / PR→main / dispatch
 - Release flow: `git tag vX.Y.Z(-suffix) && git push origin tag` → Release job
   (fresh build → optional keystore sign → versioned APK/AAB/SHA256 → Release page).
   First release `v1.0.0-phase1` live with installable APK.
+- Auto-release: every push to main/feature/** rebuilds and republishes the rolling
+  `latest` prerelease (APK+AAB+SHA256) — no manual tagging.
 
 ---
 
