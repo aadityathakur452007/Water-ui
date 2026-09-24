@@ -143,7 +143,7 @@ class _CartScreenState extends State<CartScreen> {
                 Expanded(
                   child: Text(
                     "${defaultAddress.label}\n${defaultAddress.line}\n${defaultAddress.city}",
-                    style: TextStyle(height: 1.5),
+                    style: const TextStyle(height: 1.5),
                   ),
                 ),
                 TextButton(

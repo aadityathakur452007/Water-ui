@@ -47,7 +47,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
           ? CartButton(
               price: product.price * _qty,
               title: "Continue",
-              subTitle: "${_qty} × ${product.priceLabel}",
+              subTitle: "$_qty × ${product.priceLabel}",
               press: () {
                 Navigator.pushNamed(context, cartScreenRoute);
               },
@@ -63,7 +63,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 IconButton(
                   onPressed: () {},
                   icon: SvgPicture.asset("assets/icons/Bookmark.svg",
-                      color: Theme.of(context).textTheme.bodyLarge!.color),
+                      colorFilter: ColorFilter.mode(
+                          Theme.of(context).textTheme.bodyLarge!.color!,
+                          BlendMode.srcIn)),
                 ),
               ],
             ),

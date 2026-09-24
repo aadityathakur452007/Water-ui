@@ -1,0 +1,142 @@
+# Release — tag in, installable APK out.
+#
+# Architecture (how a proper mobile release pipeline works):
+#   1. TRIGGER: pushing a tag (v1.0.0, v1.1.0-phase1, …) — tags are the
+#      only release source of truth. workflow_dispatch exists for manual
+#      preview builds (always marked prerelease).
+#   2. BUILD (fresh job, not reusing CI artifacts — releases must be
+#      reproducible from source + tag, never "the APK from some old run").
+#   3. SIGN: upload key decoded from secrets when present, else the
+#      debug fallback in app/build.gradle (installable, not storable).
+#   4. PUBLISH: softprops/action-gh-release creates the GitHub Release
+#      page with versioned APK + AAB + checksums + auto notes.
+#
+# First-time keystore setup (one-off, then never again):
+#   keytool -genkey -v -keystore upload-keystore.jks -alias upload \
+#     -keyalg RSA -keysize 2048 -validity 10000
+#   base64 -w0 upload-keystore.jks  # -> secret ANDROID_KEYSTORE_BASE64
+#   Secrets needed: ANDROID_KEYSTORE_BASE64, ANDROID_KEY_ALIAS,
+#                   ANDROID_KEY_PASSWORD, ANDROID_STORE_PASSWORD
+#   (android/key.properties + *.jks are gitignored and never committed.)
+
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to create (e.g. preview-5)"
+        required: false
+        default: ""
+      prerelease:
+        description: "Mark as pre-release"
+        type: boolean
+        required: false
+        default: true
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: "3.44.9"
+  JAVA_VERSION: "17"
+
+jobs:
+  build-and-publish:
+    name: Build + publish release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write # creating the GitHub Release
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # tags + history for release notes
+
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          check-latest: true
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Resolve version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            TAG="${{ github.ref_name }}"
+          elif [ -n "${{ inputs.tag }}" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="preview-${{ github.run_number }}"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          # v1.2.3 or v1.2.3-phase1 -> build-name 1.2.3-phase1
+          echo "name=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up signing key (optional)
+        run: |
+          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/upload-keystore.jks
+            {
+              echo "storeFile=upload-keystore.jks"
+              echo "storePassword=${{ secrets.ANDROID_STORE_PASSWORD }}"
+              echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}"
+              echo "keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}"
+            } > android/key.properties
+            echo "Release signing enabled."
+          else
+            echo "No keystore secret — release will be debug-signed (installable, not for Play Store)."
+          fi
+
+      - run: flutter pub get
+      - run: flutter analyze
+
+      - name: Build release APK
+        run: >
+          flutter build apk --release
+          --build-name=${{ steps.version.outputs.name }}
+          --build-number=${{ github.run_number }}
+
+      - name: Build release app bundle
+        run: >
+          flutter build appbundle --release
+          --build-name=${{ steps.version.outputs.name }}
+          --build-number=${{ github.run_number }}
+
+      - name: Stage artifacts
+        run: |
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-release.apk "dist/water-delivery-${{ steps.version.outputs.tag }}.apk"
+          cp build/app/outputs/bundle/release/app-release.aab "dist/water-delivery-${{ steps.version.outputs.tag }}.aab"
+          (cd dist && sha256sum water-delivery-* > SHA256SUMS.txt)
+          ls -la dist
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: "Water Delivery ${{ steps.version.outputs.tag }}"
+          prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease || contains(steps.version.outputs.tag, '-') }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            dist/water-delivery-${{ steps.version.outputs.tag }}.apk
+            dist/water-delivery-${{ steps.version.outputs.tag }}.aab
+            dist/SHA256SUMS.txt

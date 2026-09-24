@@ -62,9 +62,7 @@ jobs:
           cache: true
 
       - run: flutter pub get
-      # Infos are pre-existing deprecation noise in untouched template files
-      # (e.g. withOpacity); warnings + errors still fail the gate.
-      - run: flutter analyze --no-fatal-infos
+      - run: flutter analyze
 
   test:
     name: Test
