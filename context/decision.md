@@ -35,6 +35,7 @@
 
 | ID | Date | Decision | Status | Affects |
 |----|------|----------|--------|---------|
+| ADR-020 | 2026-09-25 | UI-checklist audit via 4 agents: orphan purge, real subscription endpoints, edge hardening | Accepted | apps/user, backend, CI |
 | ADR-019 | 2026-09-25 | Unified role-based app; demo seed mode; vendor line merged, apps/vendor retired | Accepted | apps/user, branches |
 | ADR-018 | 2026-09-24 | Fullstack: Bun+Hono+SQLite(D1-ready), vendor app, flutter_ui_collection, server-side PII strip | Accepted | backend/, apps/, CI |
 | ADR-017 | 2026-09-24 | Every commit auto-publishes rolling `latest` prerelease; tags stay immutable | Accepted | .github/workflows/release.yml |
@@ -77,6 +78,15 @@
 <!-- Newest decisions go at the top of this section. Keep this section growing — it is
      the living memory of the project. Delete the two example entries below once you
      have real decisions. -->
+
+### ADR-020: Audit-driven purge + real-data completion (4 parallel agents)
+- **Date**: 2026-09-25
+- **Status**: Accepted
+- **Context**: User approved the ui-checklist audit plan and demanded real-data correctness (placed → visible orders, true statuses) with ponytail-minimal edge handling.
+- **Decision**: 4 agents on `feature/water-ui-audit` (file-disjoint, worktree C): commerce (pull-refresh, scheduled-cancel, auth-redirect, NETWORK-only fallback), account/settings (BuyFullKit purge → real addresses/notifications/user-info/recovery/wallet/₹/profile-session), vendor (7-order derived-KPI seed, empty states, 401 paths), orphans (deleted kids/bookmark/reviews/size-guide/buy-now chain/on-sale/no-notification/BuyFullKit + dead routes; kept items re-verified). I added: user subscription endpoints (GET/POST/PATCH + skip_next migration), repo demo/live branching, 15s API timeouts, 401 auto-logout, search deep-link from Shop, cart subscription creation on regular orders.
+- **Why**: Checklist boxes answered per page (done/fixed/out-of-scope-why); deletions beat rebuilds for unreachable fashion screens; backend owns truth so demo-off works fully.
+- **Consequences**: Zero BuyFullKit refs; analyze zero; tests green; CI green (incl. backend smoke). Promo codes/upsell deliberately absent (no backend).
+- **Affects**: `apps/user`, `backend/`, router, CI run 36100598820
 
 ### ADR-019: One app, role-based home; demo seed mode; vendor branch merged
 - **Date**: 2026-09-25

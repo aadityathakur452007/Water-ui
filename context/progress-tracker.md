@@ -4,7 +4,11 @@ Update this file after every meaningful implementation change.
 
 ## Current Phase
 
-**Phase 1 — Water Delivery Repurpose (APPROVED, in progress on `feature/water-repurpose`)**
+**Phase 3 — UI audit + real-data completion (DONE on `feature/water-ui-audit`)**
+
+ui-checklist audit across all pages via 4 parallel agents; orphan purge;
+user subscription endpoints; edge hardening (timeouts, 401 logout, cancel,
+pull-refresh). CI green. Next: merge audit line, vendor APK decision.
 
 Repurposing the FlutterShop template into a water delivery customer app.
 Repo: fresh `git init` in `water-delivery-app` (copy of template, no old history);
