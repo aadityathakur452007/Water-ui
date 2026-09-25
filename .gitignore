@@ -41,3 +41,14 @@ app.*.map.json
 
 # Exceptions to above rules.
 !/packages/flutter_tools/test/data/dart_dependencies_test/**/.packages
+
+# Monorepo: ignore build outputs at any level
+build/
+.dart_tool/
+*.dill
+
+# Backend (Bun + SQLite)
+node_modules/
+*.db
+*.db-journal
+.env

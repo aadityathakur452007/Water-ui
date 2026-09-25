@@ -1,0 +1,178 @@
+# Release — every commit in, installable APK out. Fully automatic.
+#
+# Architecture (how a proper mobile release pipeline works):
+#   1. TRIGGER (no human tagging needed):
+#      - push to main / feature/** → rolling `latest` prerelease is rebuilt
+#        and re-published from that commit (tag force-moved, assets replaced).
+#      - push tag v* (v1.0.0, v1.1.0-phase1, …) → immutable versioned release.
+#      - workflow_dispatch → manual preview (tag input or preview-<run>).
+#   2. BUILD (fresh job, never recycled artifacts — reproducible from source).
+#   3. SIGN: upload key from secrets when present, else debug fallback
+#      (installable, not storable).
+#   4. PUBLISH: softprops for versioned tags; gh CLI rolling update for
+#      branch commits. APK + AAB + SHA256 on the Release page, every time.
+#
+# First-time keystore setup (one-off, then never again):
+#   keytool -genkey -v -keystore upload-keystore.jks -alias upload \
+#     -keyalg RSA -keysize 2048 -validity 10000
+#   base64 -w0 upload-keystore.jks  # -> secret ANDROID_KEYSTORE_BASE64
+#   Secrets needed: ANDROID_KEYSTORE_BASE64, ANDROID_KEY_ALIAS,
+#                   ANDROID_KEY_PASSWORD, ANDROID_STORE_PASSWORD
+#   (android/key.properties + *.jks are gitignored and never committed.)
+
+name: Release
+
+on:
+  push:
+    # Versioned releases: git tag v1.2.0(-suffix) && git push origin tag.
+    tags: ["v*"]
+    # Rolling release: EVERY commit to these branches auto-builds and
+    # refreshes the `latest` prerelease — no manual tagging, ever.
+    branches: [main, "feature/**"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to create (e.g. preview-5)"
+        required: false
+        default: ""
+      prerelease:
+        description: "Mark as pre-release"
+        type: boolean
+        required: false
+        default: true
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  FLUTTER_VERSION: "3.44.9"
+  JAVA_VERSION: "17"
+
+jobs:
+  build-and-publish:
+    name: Build + publish release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write # creating the GitHub Release
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # tags + history for release notes
+
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          check-latest: true
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Resolve version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+              TAG="${{ github.ref_name }}"
+            else
+              # Branch commit → rolling prerelease, always called `latest`.
+              TAG="latest"
+            fi
+          elif [ -n "${{ inputs.tag }}" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="preview-${{ github.run_number }}"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          # v1.2.3 or v1.2.3-phase1 -> build-name 1.2.3-phase1
+          echo "name=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up signing key (optional)
+        working-directory: apps/user
+        run: |
+          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/upload-keystore.jks
+            {
+              echo "storeFile=upload-keystore.jks"
+              echo "storePassword=${{ secrets.ANDROID_STORE_PASSWORD }}"
+              echo "keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}"
+              echo "keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}"
+            } > android/key.properties
+            echo "Release signing enabled."
+          else
+            echo "No keystore secret — release will be debug-signed (installable, not for Play Store)."
+          fi
+
+      - run: flutter pub get
+        working-directory: apps/user
+      - run: flutter analyze
+        working-directory: apps/user
+
+      - name: Build release APK
+        working-directory: apps/user
+        run: >
+          flutter build apk --release
+          --build-name=${{ steps.version.outputs.name }}
+          --build-number=${{ github.run_number }}
+
+      - name: Build release app bundle
+        working-directory: apps/user
+        run: >
+          flutter build appbundle --release
+          --build-name=${{ steps.version.outputs.name }}
+          --build-number=${{ github.run_number }}
+
+      - name: Stage artifacts
+        working-directory: apps/user
+        run: |
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-release.apk "dist/water-delivery-${{ steps.version.outputs.tag }}.apk"
+          cp build/app/outputs/bundle/release/app-release.aab "dist/water-delivery-${{ steps.version.outputs.tag }}.aab"
+          (cd dist && sha256sum water-delivery-* > SHA256SUMS.txt)
+          ls -la dist
+
+      - name: Publish GitHub Release
+        if: github.event_name != 'push' || startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: "Water Delivery ${{ steps.version.outputs.tag }}"
+          prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease || contains(steps.version.outputs.tag, '-') }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            apps/user/dist/water-delivery-${{ steps.version.outputs.tag }}.apk
+            apps/user/dist/water-delivery-${{ steps.version.outputs.tag }}.aab
+            apps/user/dist/SHA256SUMS.txt
+
+      - name: Publish rolling prerelease (branch commits)
+        if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')
+        working-directory: apps/user
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          # Move the rolling `latest` tag to this commit.
+          gh release delete latest -y --cleanup-tag 2>/dev/null || true
+          git tag -f latest
+          git push origin latest --force
+          gh release create latest \
+            --title "Latest build (#${{ github.run_number }} · ${{ github.ref_name }})" \
+            --notes "Auto-built from commit ${{ github.sha }} on branch ${{ github.ref_name }}. Debug-signed preview — install to try, not for Play Store." \
+            --prerelease \
+            dist/water-delivery-latest.apk \
+            dist/water-delivery-latest.aab \
+            dist/SHA256SUMS.txt

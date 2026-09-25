@@ -35,6 +35,24 @@
 
 | ID | Date | Decision | Status | Affects |
 |----|------|----------|--------|---------|
+| ADR-021 | 2026-09-25 | Purchase-flow honesty fixes: demo order-book, addressId checkout, NETWORK-only fallbacks, status granularity, displayLabel | Accepted | apps/user (commerce scope), test/purchase_fixes_test.dart |
+| ADR-022 | 2026-09-25 | Account subtle fixes: AuthService-routed signup, demo-persisted addresses, radio payment pop, debounced search, prefs persistence | Accepted | apps/user account surfaces, address repo, test/ |
+| ADR-023 | 2026-09-25 | Vendor subtle fixes: all-omitted query, demo transition guard, onceAWeek wire, honest empty/sample labels | Accepted | apps/user vendor screens, subscription model/repo, test/ |
+| ADR-024 | 2026-09-25 | Server owns flat ₹10 delivery fee; skip_next declared in schema.sql; seed/display parity | Accepted | backend/src/index.ts, backend/schema.sql, backend/seed.ts |
+| ADR-020 | 2026-09-25 | UI-checklist audit via 4 agents: orphan purge, real subscription endpoints, edge hardening | Accepted | apps/user, backend, CI |
+| ADR-019 | 2026-09-25 | Unified role-based app; demo seed mode; vendor line merged, apps/vendor retired | Accepted | apps/user, branches |
+| ADR-018 | 2026-09-24 | Fullstack: Bun+Hono+SQLite(D1-ready), vendor app, flutter_ui_collection, server-side PII strip | Accepted | backend/, apps/, CI |
+| ADR-017 | 2026-09-24 | Every commit auto-publishes rolling `latest` prerelease; tags stay immutable | Accepted | .github/workflows/release.yml |
+| ADR-016 | 2026-09-24 | Phase 2 on feature/water-phase2: order-type, subscriptions, search, notifications, account | Accepted | lib/screens, lib/route, CI |
+| ADR-015 | 2026-09-24 | Tag-driven releases (softprops), keystore wiring, lint-zero via dart fix | Accepted | .github/workflows/release.yml, android/, lib/ |
+| ADR-014 | 2026-09-24 | Metered-usage cents ($0.03–0.04 Copilot overage) triggered the billing flag; support draft provided | Accepted | account, CI |
+| ADR-013 | 2026-09-24 | Billing-failure flag explains the CI block; clear via billing support, pay nothing | Accepted | account, CI |
+| ADR-012 | 2026-09-24 | Billing page is not a charge; support ticket is the unblock path (no card, no repo hack) | Accepted | account, CI |
+| ADR-011 | 2026-09-24 | CI runs startup_fail account-wide (probe repo proves it); pipeline code stands, unblock on GitHub side | Accepted | .github/workflows/ci.yml, account |
+| ADR-010 | 2026-09-24 | Parallel analyze/test/build-android CI on ubuntu-latest, pinned toolchain, Dependabot | Accepted | .github/workflows/ci.yml, test/ |
+| ADR-009 | 2026-09-24 | Phase 1 repurpose: mock repos + reuse widgets, ₹, 4-tab nav, drop fashion sections | Accepted | lib/models, lib/repositories, lib/screens, lib/entry_point.dart |
+| ADR-008 | 2026-09-24 | Primary purple 0xFF7B61FF → water blue 0xFF1B7BD6; keep type/spacing | Accepted | lib/constants.dart |
+| ADR-007 | 2026-09-24 | Fresh git repo via copy (rename blocked by OS lock); main=snapshot, work on feature/water-repurpose | Accepted | repo root, git history |
 | ADR-006 | 2026-09-24 | specify init with opencode integration (ps scripts) to unlock speckit.* SDLC commands | Accepted | .specify/, .opencode/, .codex/, AGENTS.md |
 | ADR-005 | 2026-09-24 | Keep pre-installed specify-cli 1.0.5.dev0; skip broken `git+...@latest` reinstall | Accepted | tooling, Agent.md instruction |
 | ADR-004 | 2026-09-24 | Run Skills.py --yes: 36 community skills + node sidecar package.json in Flutter repo | Accepted | .agents/skills/, package.json, skills-lock.json |
@@ -61,9 +79,180 @@
 
 ## Decision Entries
 
+### ADR-021: Purchase-flow honesty fixes (commerce scope)
+- **Date**: 2026-09-25
+- **Status**: Accepted
+- **Context**: Audit found demo orders never listing placed orders, checkout omitting the contract-required address, fake success on offline failure, collapsed vendor statuses, and dead/minor UI gaps.
+- **Options considered**: Router change to pass order id (rejected — OrdersScreen reads `ModalRoute` args itself, zero router churn); shared OfflineChip widget (rejected — per-file private chips keep the diff minimal and avoid touching shared components); disabling cart minus at qty 1 (rejected — it removes the line, the only removal path; clamping steppers got the disabled state instead).
+- **Decision**: In-memory demo order-book with `copyWith(status:)` cancel; checkout address RadioList + `addressId|address` fallback + inline not-sent state (never success on NETWORK); NETWORK-only fallbacks with offline chips and error-cards-with-retry (hide only on genuine empty); `preparing`/`outForDelivery` 1:1 + 4-step timeline; `displayLabel`; success `pushReplacement` + auto-open sheet; modal opt-in title/Close; payment route-result sync (null-safe); `pushNamedAndRemoveUntil(login)`; stepper disabled-at-min where clamping; bookmark removal; related pre-filter. `test/purchase_fixes_test.dart` (5 tests).
+- **Why**: Every fix lands at the root (repo/model) so all callers inherit it; UI stays honest about unsent/failed states per impeccable-harden; file ownership respected (router, address_repository, payment screen untouched).
+- **Consequences**: Demo `_demoOngoing` is static in-memory (resets on restart — acceptable for demo); payment sync depends on Agent B's methods-screen popping a String result (null-safe until then).
+- **Affects**: `apps/user/{models/order_model, repositories/order_repository, components/custom_modal_bottom_sheet, screens/{home,discover,product,order_type,checkout,order}}`, `test/purchase_fixes_test.dart`
+
+### ADR-022: Account subtle fixes (13 approved items, minimal diffs)
+- **Date**: 2026-09-25
+- **Status**: Accepted
+- **Context**: Approved fix list on `feature/water-subtle-fixes` (file-disjoint from Agent A who owns cart/checkout): demo signup bypassed AuthService, login kept Login in the back stack, Terms linked to an unregistered route, demo addresses vanished after create, payment selection could not sync to checkout, search lost caret + fired per keystroke, prefs/toggles were memory-only, wallet money bypassed `inr()`.
+- **Decision**: Signup routes through `AuthService.register` (demo/live + session save); login/signup clear stale errors on retype, `autovalidateMode.onUserInteraction`, `labelText` + hints, dismissible error SnackBar + inline text, `pushNamedAndRemoveUntil(_, (_) => false)`; Terms link de-linked to plain text (route unregistered — checked router first); recovery pre-fills via `initialEmail` direct-push (no router-contract change); `AddressRepository` static demo store (seed + created, copy-out; live path untouched); payment screen is `RadioGroup` + pops `cod|upi`; profile gets skeleton, dead Location/FAQ tiles removed, icon SnackBars, logout confirm + "Logged out" toast; entry `unselectedItemColor` muted; search owns a controller + 300ms debounce, "N results" count, RichText highlight rows (grid-to-list: shared `ProductCard` takes plain-String title and is read-only), sort bottom sheet on filter icon; user_info drops `role`; wallet branches to `EmptyWalletScreen`, `inr()` everywhere, button to `primaryColor`; prefs + notif toggles persist via shared_preferences (verified in pubspec — no new deps); DotsV becomes settings shortcut to options; `_BootGate` routes token-less boot to login.
+- **Why**: Root-cause, minimal-diff fixes per ponytail + ui-checklist (labels, result counts, highlight, dismissible toasts, pre-filled recovery, radio grouping, confirm modal); contract frozen so no backend/router-shape changes — checkout/cart side stays Agent A's via the documented pop contract.
+- **Consequences**: `flutter analyze --no-pub` zero; `flutter test` green incl. new `test/account_fixes_test.dart` (12 tests). Notif list + wallet history remain local seed (no backend endpoint — noted honestly in code).
+- **Affects**: `apps/user/lib/screens/{auth,profile,address,payment,wallet,preferences,notification,search,user_info}`, `services/auth_service.dart` (used, not changed), `repositories/address_repository.dart`, `entry_point.dart`, `main.dart`, `test/account_fixes_test.dart`
+
+### ADR-023: Vendor subtle fixes (10 approved items, minimal diffs)
+- **Date**: 2026-09-25
+- **Status**: Accepted
+- **Context**: Vendor surfaces had a live blocker (`?status=all` returns nothing), dishonest/unclear empty states, a popped-context SnackBar, demo accepting illegal status jumps the live API 409s, `once_a_week` silently rewritten to `weekly`, and a stale "no subscription endpoints" comment.
+- **Decision**: `ordersQuery()` helper (all/empty→null) shared by live fetch; demo `updateStatus` mirrors live guard (forward-only, cancel from non-final, else CONFLICT); `Frequency.onceAWeek` added with `once_a_week` round-trip, `weekly` relabeled "Weekly" so dropdown labels stay distinct; `VendorSubscription` parses nested `product:{id,name}` + humanizes frequency; SnackBar ownership moved to orders list (detail pops status string); dashboard pull-refresh awaits the real future + KPI re-fetch on tab revisit via key bump; progress card labeled "Delivery summary / Sample figures" (history can't be derived from the sub list); save gets dirty/disabled + loading + toast.
+- **Why**: Root-cause fixes at the narrowest choke point (query builder, demo guard, parser); no new deps, water-blue/white, `inr()` for ₹, existing components reused. `weekly`→"Weekly" relabel was required to avoid two identical dropdown entries.
+- **Consequences**: `flutter test` green incl. new `test/vendor_fixes_test.dart`; final `flutter analyze --no-pub` zero repo-wide (orchestrator-verified). `subscription_model.dart` doc comment still says no user endpoints — left stale per file scope (repository comment fixed).
+- **Affects**: `apps/user/lib/screens/vendor/`, `subscriptions_screen.dart`, `subscription_repository.dart`, `subscription_model.dart`, `services/vendor_service.dart`, `test/vendor_fixes_test.dart`
+
 <!-- Newest decisions go at the top of this section. Keep this section growing — it is
      the living memory of the project. Delete the two example entries below once you
      have real decisions. -->
+
+### ADR-024: Server-owned ₹10 delivery fee; skip_next in schema.sql; seed parity
+- **Date**: 2026-09-25
+- **Status**: Accepted
+- **Context**: Order totals omitted the spec'd ₹10 delivery fee (client computed items-only); `skip_next` existed only via runtime migration so fresh schema ≠ runtime schema; seed names/capacities drifted cosmetically from Flutter demo (`·`/`×`).
+- **Decision**: `createOrder` adds flat `DELIVERY_FEE = 10` to the server-computed total (response shape unchanged; stored total flows to list/cancel/vendor/KPIs automatically). `schema.sql` declares `skip_next INTEGER NOT NULL DEFAULT 0`; runtime migration kept as harmless no-op. Seed names/capacities aligned to Flutter demo strings; prices/ids already matched (no change). Backend README already documented `INTERNAL`, so no doc edit. No new endpoints, no contract edit, no Flutter changes, no dependencies.
+- **Why**: Server owns money math (client totals already ignored); declaring the column makes fresh DBs match existing ones; cosmetic seed alignment is zero-risk (seed-if-empty only).
+- **Consequences**: Every new order total = items + 10 (verified live: 155 → 165). Existing orders keep their stored totals.
+- **Affects**: `backend/src/index.ts`, `backend/schema.sql`, `backend/seed.ts`
+
+### ADR-020: Audit-driven purge + real-data completion (4 parallel agents)
+- **Date**: 2026-09-25
+- **Status**: Accepted
+- **Context**: User approved the ui-checklist audit plan and demanded real-data correctness (placed → visible orders, true statuses) with ponytail-minimal edge handling.
+- **Decision**: 4 agents on `feature/water-ui-audit` (file-disjoint, worktree C): commerce (pull-refresh, scheduled-cancel, auth-redirect, NETWORK-only fallback), account/settings (BuyFullKit purge → real addresses/notifications/user-info/recovery/wallet/₹/profile-session), vendor (7-order derived-KPI seed, empty states, 401 paths), orphans (deleted kids/bookmark/reviews/size-guide/buy-now chain/on-sale/no-notification/BuyFullKit + dead routes; kept items re-verified). I added: user subscription endpoints (GET/POST/PATCH + skip_next migration), repo demo/live branching, 15s API timeouts, 401 auto-logout, search deep-link from Shop, cart subscription creation on regular orders.
+- **Why**: Checklist boxes answered per page (done/fixed/out-of-scope-why); deletions beat rebuilds for unreachable fashion screens; backend owns truth so demo-off works fully.
+- **Consequences**: Zero BuyFullKit refs; analyze zero; tests green; CI green (incl. backend smoke). Promo codes/upsell deliberately absent (no backend).
+- **Affects**: `apps/user`, `backend/`, router, CI run 36100598820
+
+### ADR-019: One app, role-based home; demo seed mode; vendor branch merged
+- **Date**: 2026-09-25
+- **Status**: Accepted
+- **Context**: Two branches produced one identical user APK (vendor never built); login demanded a live server; user ordered unification (one login, role decides experience), offline seed fallback, User/Vendor toggle, single new branch.
+- **Decision**: `feature/water-unified` off user-app-audit; merged vendor-app (CI conflict resolved keeping backend job); vendor screens ported to `apps/user/lib/screens/vendor/` reusing ApiClient/SessionStore (new VendorService with demo seed + HTTP); login has User/Vendor SegmentedButton + one-tap demo logins + role routing; signup stays user-only with vendor-provisioned note (self-registration as vendor would violate server-side role forcing); `AppConfig.demoMode` (default true, dart-define override) short-circuits repos to bundled seed — zero network waits; `apps/vendor` deleted; logout wired both sides.
+- **Why**: One APK to install, one codebase to extend, no duplicated auth/nav; demo default makes CI builds instantly usable; role checks stay server-side in live mode.
+- **Consequences**: `feature/vendor-app` retired (merged). CI green on unified (Analyze/Test/backend/Build). `latest` release now serves the unified app.
+- **Affects**: `apps/user/{config,services,screens/vendor}`, login/signup, router, branches
+
+### ADR-018: Real backend + vendor app + library adoption via 3 parallel agents
+- **Date**: 2026-09-24
+- **Status**: Accepted
+- **Context**: User demanded ui-checklist audit, Order-Again rebuild, real users/tracking, vendor login+dashboard, Cloudflare-compatible DB in Docker, flutter_ui_collection (no hand-rolled AI components), 2 branches, parallel agents.
+- **Decision**: Monorepo `apps/user|vendor + backend`. Backend: Bun+Hono+TS+`bun:sqlite` raw SQL (Bun.password argon2id, token sessions, role forced server-side); SQLite file in Docker volume = D1-compatible schema.sql, Workers-ready Hono. Vendor: separate Flutter app (login w/ role gate, KPI dashboard, PII-stripped orders + status advance, subscriptions) with flutter_ui_collection dashboard/auth modules. User app: ui-checklist fixes (NotFound route, loading/error/empty, toggles, checkbox fix), Order-Again rebuilt flat, UiTimeline/UiStat adoption only, HTTP-wired repos + real login/signup, mock sync methods kept as offline fallback. PII rule enforced in vendor serializers (verified live: zero name/phone/email keys). CI gained backend boot+smoke job (incl. PII asserts) and vendor analyze/test job. Fixed integration break found live: order `type` wire format is `one-time` (was `one_time`).
+- **Why**: Smallest stack satisfying Cloudflare-future (Hono runs on Workers, D1 runs schema.sql); library chosen has exactly the needed modules (dashboard KPIs, order tracker, auth); parallel worktrees kept agents collision-free; frozen contract prevented drift.
+- **Consequences**: Branches `feature/user-app-audit` (CI green incl. smoke) + `feature/vendor-app` (CI green) await review + merge. Still TODO: merge both, vendor APK in release, unique vendor app label, Firebase/Clerk + Workers+D1 migration, real photos.
+- **Affects**: `backend/`, `apps/user`, `apps/vendor`, `docker-compose.yml`, CI, contract
+
+### ADR-017: Rolling `latest` release on every commit — zero manual tagging
+- **Date**: 2026-09-24
+- **Status**: Accepted
+- **Context**: User refused manual per-commit tagging; wants commit → built → tagged → Release page, automatically.
+- **Decision**: `release.yml` also triggers on pushes to main/feature/**. Branch commits rebuild and force-move a rolling `latest` prerelease (gh CLI: delete, retag, recreate with APK+AAB+SHA256). Tag pushes keep the immutable softprops path. Concurrency cancels superseded runs so rapid commits don't race.
+- **Why**: Release page is always installable from the newest commit; versioned tags remain the immutable record. Verified live: push 005a806 auto-fired CI + Release, `latest` published with all 3 assets.
+- **Consequences**: Every commit costs one ~4-min release build. `latest` is mutable by design; `v*` tags stay immutable.
+- **Affects**: `.github/workflows/release.yml`
+
+### ADR-016: Phase 2 — subscriptions depth, repo-backed search/notifications, account cleanup
+- **Date**: 2026-09-24
+- **Status**: Accepted
+- **Context**: Approved full Phase 2 on `feature/water-phase2` (branched off Phase 1). Needed: order-type choice, subscription config/mgmt/progress, account additions, real search, water notifications.
+- **Decision**: New `order_type` route (one-time/regular cards) fed by details Continue; `subscription_config` (frequency radio + native date/time pickers) → cart preselected regular; `subscriptions` screen (progress header, pause/resume, skip-next, modify sheet) over `Subscription.copyWith` + local state; `payment_methods` screen replaces the dead `emptyPayment` route; search rewritten on `ProductRepository.search` with grid + empty state (no fashion filters); notifications as mock water list; profile swaps Returns/Wishlist/fashion banner for Regular Deliveries/Payment Methods/water banner. Cart accepts `{productId, qty, orderType}` map args.
+- **Why**: Every screen reuses existing widgets/routes patterns (RadioGroup, ProductCard, ProductQuantity, bottom sheets); subscription state stays local until backend owns it; no new dependencies.
+- **Consequences**: CI green (Analyze/Test/Build). Still TODO: merge PR #1, unique applicationId, upload key, onboarding/auth cleanup, real photos.
+- **Affects**: `lib/screens/{order_type,subscription,payment,search,notification,profile,checkout,product}`, router, CI run 35966934093
+
+### ADR-015: Tag-in/APK-out releases; lint-zero instead of gate relaxation
+- **Date**: 2026-09-24
+- **Status**: Accepted
+- **Context**: No Release page existed; CI analyze failed only on 42 pre-existing infos (plain `flutter analyze` treats infos as fatal — my local gate misread this earlier); Android pins (Gradle 7.6/A GP 7.3/Kotlin 1.7) predated the SDK and broke `:gradle:compileKotlin` ("language version 1.4 unsupported").
+- **Options considered**: Keep `--no-fatal-infos` (masks real warnings — rejected after seeing it hide signal); hand-edit 42 spots (slow — rejected); `dart fix --apply` (29 auto) + 13 hand SvgPicture `colorFilter` fixes (chosen). For release: Firebase App Distribution / Play internal track (needs accounts/secrets — deferred); tag-driven `release.yml` with softprops/action-gh-release@v2 + optional keystore secrets (chosen).
+- **Decision**: `release.yml` (tags `v*` + dispatch): fresh build → optional upload-key signing via `key.properties` wiring (debug fallback) → versioned APK+AAB+SHA256 → GitHub Release (prerelease when tag contains `-`). Toolchain bumped to the SDK template's own baseline (Gradle 9.1, AGP 9.0.1, Kotlin 2.3.20, Java 17), Groovy kept. CI back to strict `flutter analyze`. First release `v1.0.0-phase1` published with installable APK.
+- **Why**: Releases rebuild from source+tag (never recycled artifacts); keystore secrets stay optional so local `flutter run --release` keeps working; template pins are the only version set guaranteed compatible with Flutter 3.44.
+- **Consequences**: Current APK is debug-signed (installable, not Play-ready). Still TODO: unique `applicationId`, upload key generation, merge PR #1, delete probe/old folders.
+- **Affects**: `.github/workflows/`, `android/`, 20 lib files (mechanical deprecation fixes)
+
+### ADR-014: $0.04 metered overage caused the billing flag; support draft sent to user
+- **Date**: 2026-09-24
+- **Status**: Accepted
+- **Context**: User's billing page: $5.05 gross metered, $5.01 included → ~$0.04 remainder, matching the $0.03 Copilot AI-credit overage (3.43 credits beyond included). Plans are GitHub Free + Copilot Student ($0). With no valid payment method, the few-cents charge failed → account flag → all Actions `startup_failure`.
+- **Decision**: Provided a billing-support message reporting the exact numbers, asking to waive/clear the cents-level balance and lift the flag without adding a card. No payment, no plan change.
+- **Why**: Amounts reconcile exactly ($5.05 − $5.01 ≈ Copilot $0.03 overage); support routinely clears cents-level flags on Free/Student accounts.
+- **Consequences**: CI stays blocked until support clears it; user sends the draft as-is.
+- **Affects**: account `aditya452007`, CI unblock process
+
+### ADR-013: The billing-failure banner is the CI blocker; support clears it, no payment needed
+- **Date**: 2026-09-24
+- **Status**: Accepted
+- **Context**: User reports GitHub shows "We are having a problem billing your account… transaction failed" despite never adding a card and wanting Free-only. This explains the account-wide `startup_failure` (billing-failed flags restrict the account pre-job). Community cases confirm only billing support can manually clear it (1–2 days).
+- **Options considered**: Add/update a card (refused by user, unnecessary — rejected); engineer around it (no workaround exists for account flags — rejected); contact billing support stating $0 owed / no card / Free-only, ask to clear erroneous flag (chosen).
+- **Decision**: User contacts support.github.com (Account/Billing path) with provided draft; no payment, no card. Re-trigger CI after clearance.
+- **Why**: Verified pattern from resolved community cases + matches every symptom (instant 0-job failures on two repos, valid YAML, enabled Actions).
+- **Consequences**: CI stays red until cleared. Do NOT add a card to "fix" it.
+- **Affects**: account `aditya452007`, CI unblock process
+
+### ADR-012: Billing screen ≠ charges; file a support ticket, don't engineer around it
+- **Date**: 2026-09-24
+- **Status**: Accepted
+- **Context**: User sees a Billing page and fears charges; email already verified; runs still `startup_failure` account-wide. Asked for a repo/hack to avoid billing and whether to email GitHub.
+- **Options considered**: Add a payment method (explicitly refused by user, and unnecessary — rejected); hunt for a repo/workaround (no workaround exists for account-side blocks — rejected); contact GitHub Support, free, no card (chosen).
+- **Decision**: Per GitHub docs, Free includes 2000 Actions min/month for private repos; with no payment method on file GitHub can only pause usage at quota, never charge — so the Billing page is informational, ignore it. Support ticket is the only unblock path; draft provided to user.
+- **Why**: Docs-verified (billing concepts page): quota untouched on a fresh account, so billing cannot be the blocker; remaining cause is an account flag only Support can clear.
+- **Consequences**: No CI until Support clears it. No repo changes needed for this.
+- **Affects**: account `aditya452007`, CI unblock process
+
+### ADR-011: CI startup_failure is an account block, not our YAML
+- **Date**: 2026-09-24
+- **Status**: Accepted
+- **Context**: All CI runs (full workflow, fixed workflow, even a minimal echo workflow) failed in 0s with `startup_failure`, zero jobs, no error message.
+- **Options considered**: Keep guessing at YAML (bisect proved content-independent — rejected); verify action refs via `git ls-remote` (found one real bug: `gradle/actions/setup-gradle@v2` doesn't exist → fixed to `@v6`); probe with a fresh trivial repo on main (also instant-failed → proves account-level block).
+- **Decision**: Pipeline code stands as written. Unblocking must happen GitHub-side: verify account email, check billing/Actions minutes, then re-trigger via push or `workflow_dispatch`. Probe repo `ci-probe` left for the user to delete (token lacks `delete_repo`).
+- **Why**: Two independent repos + minimal YAML failing identically rules out our code. Chasing YAML further would be hallucination-driven CI editing — exactly what the user asked to avoid.
+- **Consequences**: No green CI until account is trusted. Local `flutter analyze`/`flutter test` remain the verification gate meanwhile.
+- **Affects**: `.github/workflows/ci.yml`, GitHub account `aditya452007`
+
+### ADR-010: Parallel CI with pinned toolchain + Dependabot
+- **Date**: 2026-09-24
+- **Status**: Accepted
+- **Context**: Need Android compile proof per push without the 3x sequential cost; user demanded latest versions, no hallucinated refs.
+- **Options considered**: Single sequential job (simple but ~3x wall-clock — rejected); Fastlane/MAS (heavy for now — rejected); 3 parallel jobs (analyze, test, build-android) on ubuntu-latest with 3 cache layers (flutter-action SDK+pub, setup-gradle deps+build, PR read-only) (chosen).
+- **Decision**: `.github/workflows/ci.yml` as researched: checkout@v7, setup-java@v6 (temurin 17), setup-gradle@v6, flutter-action@v2 pinned to local Flutter 3.44.9; build job emits debug APK + `--build-number=run_number` release AAB; Dependabot weekly for actions + pub.
+- **Why**: Matches how large Android/Flutter shops run it (parallel gates, read-only PR caches, versioned artifacts); every ref verified against upstream tags + AGP/Gradle/Java compat tables; Java 17 satisfies AGP 7.3 through 9.x so the workflow survives repo upgrades.
+- **Consequences**: Release signing + store deploy intentionally deferred to a gated release workflow (needs secrets). Counter `widget_test` replaced by `water_catalog_test` (5 unit tests, green locally).
+- **Affects**: `.github/workflows/ci.yml`, `.github/dependabot.yml`, `test/`
+
+### ADR-009: Phase 1 repurpose — mock repos, widget reuse, ₹, 4-tab nav
+- **Date**: 2026-09-24
+- **Status**: Accepted
+- **Context**: Approved spec demands repurpose-not-redesign with a clean seam for backend integration and no fake hardcoded UI values.
+- **Options considered**: Hardcode water data in widgets (fast, but scatters values — rejected per spec's engineering rule); full backend now (out of scope — rejected); mock `Product/Order/SubscriptionRepository` + reuse `ProductCard`, `ProductQuantity`, `CartButton`, `OrderProgress`, `SearchForm`, `ExpansionCategory` (chosen).
+- **Decision**: New models (`cart`, `order`, `subscription`) + 3 mock repositories; Home/Shop/Detail/Cart/Orders rewritten on reused widgets; `EntryPoint` 4 tabs (Home, Orders, Shop, Account); fashion home sections deleted; details router takes product id with bool fallback.
+- **Why**: Smallest diff that meets the spec; repository seam makes Phase 2/backend swap mechanical; deleted sections were fashion-only with zero water reuse.
+- **Consequences**: Bookmark/kids/on-sale/wallet/auth/onboarding files untouched (stale fashion copy, off-nav). `RadioGroup` used (Flutter ≥3.29 API). Real photography still needed.
+- **Affects**: `lib/models/`, `lib/repositories/`, home/shop/product/checkout/order screens, `lib/entry_point.dart`, router
+
+### ADR-008: Water blue primary, keep everything else
+- **Date**: 2026-09-24
+- **Status**: Accepted
+- **Context**: Spec says keep existing blue/white language; actual primary was purple 0xFF7B61FF.
+- **Options considered**: Keep purple (clashes with water identity — rejected); full palette redesign (violates repurpose rule — rejected); swap primary + material ramp to 0xFF1B7BD6 only (chosen).
+- **Decision**: `primaryColor`, `primaryMaterialColor`, `purpleColor` → water blue ramp; fonts, spacing, radius, success/warning/error untouched.
+- **Why**: One-token change propagates via existing theme references (buttons, nav, chips); zero layout churn.
+- **Consequences**: Some SVG/icon tints referencing old purple hex remain in untouched files — cosmetic, Phase 2.
+- **Affects**: `lib/constants.dart`
+
+### ADR-007: Fresh repo via copy; main = snapshot; work on feature branch
+- **Date**: 2026-09-24
+- **Status**: Accepted
+- **Context**: User approved dropping `.git` (history + origin) + rename to water-delivery-app + branch for changes. Windows held a lock on the folder (IDE/agent cwd), so in-place `Rename-Item`/`move` failed with Access denied.
+- **Options considered**: Force-close handles (risky, unknown owner — rejected); `git filter-branch`/orphan branch in place (keeps old objects, not a true fresh start — rejected); robocopy tree excluding `.git` to `water-delivery-app` + `git init` + root commit on `main` + `feature/water-repurpose` (chosen).
+- **Decision**: New folder + fresh repo as above; old folder left on disk for the user to delete.
+- **Why**: Satisfies "new repo, changes off main" without fighting the OS lock; copy verified (`lib/main.dart` present, 757 files committed).
+- **Consequences**: Old remote/history unrecoverable from new repo (intended). User must delete `E-commerce-Complete-Flutter-UI` manually and, later, set a new remote.
+- **Affects**: repo root, git history, both folders on disk
 
 ### ADR-006: specify init with opencode integration (ps scripts)
 - **Date**: 2026-09-24
