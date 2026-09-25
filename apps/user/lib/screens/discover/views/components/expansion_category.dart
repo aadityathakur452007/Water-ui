@@ -41,7 +41,11 @@ class ExpansionCategory extends StatelessWidget {
           children: [
             ListTile(
               onTap: () {
-                Navigator.pushNamed(context, onSaleScreenRoute);
+                Navigator.pushNamed(
+                  context,
+                  searchScreenRoute,
+                  arguments: subCategory[index].title,
+                );
               },
               title: Text(
                 subCategory[index].title,

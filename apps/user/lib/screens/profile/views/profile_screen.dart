@@ -4,6 +4,7 @@ import 'package:shop/components/list_tile/divider_list_tile.dart';
 import 'package:shop/constants.dart';
 import 'package:shop/route/screen_export.dart';
 import 'package:shop/services/auth_service.dart';
+import 'package:shop/services/session_store.dart';
 
 import 'components/profile_card.dart';
 import 'components/profile_menu_item_list_tile.dart';
@@ -22,14 +23,22 @@ class ProfileScreen extends StatelessWidget {
     return Scaffold(
       body: ListView(
         children: [
-          ProfileCard(
-            name: "Sepide",
-            email: "theflutterway@gmail.com",
-            imageSrc: "https://i.imgur.com/IXnwbLk.png",
-            // proLableText: "Sliver",
-            // isPro: true, if the user is pro
-            press: () {
-              Navigator.pushNamed(context, userInfoScreenRoute);
+          FutureBuilder<Map<String, dynamic>?>(
+            future: const SessionStore().readUser(),
+            builder: (context, snap) {
+              final user = snap.data;
+              return ProfileCard(
+                name: user?['name']?.toString() ?? "Guest",
+                email: user?['email']?.toString() ??
+                    user?['phone']?.toString() ??
+                    "Not signed in",
+                imageSrc: "https://i.imgur.com/IXnwbLk.png",
+                // proLableText: "Sliver",
+                // isPro: true, if the user is pro
+                press: () {
+                  Navigator.pushNamed(context, userInfoScreenRoute);
+                },
+              );
             },
           ),
           Padding(

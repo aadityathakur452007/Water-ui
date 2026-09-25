@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -70,29 +71,46 @@ class ApiClient {
 
   Future<dynamic> get(String path, {Map<String, String>? query}) async {
     final uri = Uri.parse('$baseUrl$path').replace(queryParameters: query);
-    final res = await _http.get(uri, headers: _headers());
+    final res = await _send(_http.get(uri, headers: _headers()));
     return _decode(res);
   }
 
   Future<dynamic> post(String path, {Object? body}) async {
     final uri = Uri.parse('$baseUrl$path');
-    final res = await _http.post(
+    final res = await _send(_http.post(
       uri,
       headers: _headers(),
       body: body == null ? null : jsonEncode(body),
-    );
+    ));
     return _decode(res);
   }
 
   Future<dynamic> patch(String path, {Object? body}) async {
     final uri = Uri.parse('$baseUrl$path');
-    final res = await _http.patch(
+    final res = await _send(_http.patch(
       uri,
       headers: _headers(),
       body: body == null ? null : jsonEncode(body),
-    );
+    ));
     return _decode(res);
   }
 
   void close() => _http.close();
+
+  /// 15s ceiling per request: a hanging server becomes a typed error
+  /// instead of an infinite spinner. Transport failures map to NETWORK
+  /// so screens can offer retry (and stay offline-capable in demo).
+  static const _timeout = Duration(seconds: 15);
+
+  Future<http.Response> _send(Future<http.Response> call) async {
+    try {
+      return await call.timeout(_timeout);
+    } on TimeoutException {
+      throw const AppException(
+          'NETWORK', 'Server unreachable. Try again.');
+    } catch (_) {
+      throw const AppException(
+          'NETWORK', 'Could not reach the server.');
+    }
+  }
 }

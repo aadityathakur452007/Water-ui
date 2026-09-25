@@ -97,6 +97,10 @@ class AuthService {
 
   Future<void> logout() => _sessions.clear();
 
+  /// Call when an API call fails with UNAUTHENTICATED: drops the dead
+  /// session so the next screen shows login instead of retry loops.
+  Future<void> handleUnauthorized() => logout();
+
   Future<String?> role() async {
     final user = await _sessions.readUser();
     return user?['role']?.toString();

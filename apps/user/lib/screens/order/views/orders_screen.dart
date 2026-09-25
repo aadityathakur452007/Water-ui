@@ -6,7 +6,9 @@ import 'package:shop/constants.dart';
 import 'package:shop/models/cart_model.dart';
 import 'package:shop/models/order_model.dart';
 import 'package:shop/repositories/order_repository.dart';
+import 'package:shop/route/route_constants.dart';
 import 'package:shop/services/api_client.dart';
+import 'package:shop/services/auth_service.dart';
 
 /// Water-blue tokens scoped ONLY to the library timeline widget.
 /// The app keeps its Material theme; this wrapper just satisfies
@@ -46,10 +48,26 @@ class _OrdersScreenState extends State<OrdersScreen> {
     try {
       final remote = await _repo.fetchOrders();
       return _split(remote);
-    } on AppException {
-      // Backend unreachable / logged out: show the bundled demo orders
+    } on AppException catch (e) {
+      if (e.code == 'UNAUTHENTICATED') {
+        await const AuthService().handleUnauthorized();
+        if (mounted) {
+          Navigator.pushNamed(context, logInScreenRoute);
+        }
+        rethrow;
+      }
+      // Backend unreachable: show the bundled demo orders
       // so the screen still demonstrates ongoing vs past.
       return (ongoing: _repo.ongoing(), past: _repo.past());
+    }
+  }
+
+  Future<void> _refresh() async {
+    setState(() => _future = _load());
+    try {
+      await _future;
+    } catch (_) {
+      // Error surface stays with the FutureBuilder Retry path.
     }
   }
 
@@ -125,8 +143,20 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 (ongoing: const <Order>[], past: const <Order>[]);
             return TabBarView(
               children: [
-                _OrderList(orders: data.ongoing),
-                _OrderList(orders: data.past),
+                RefreshIndicator(
+                  onRefresh: _refresh,
+                  child: _OrderList(
+                    orders: data.ongoing,
+                    onChanged: _refresh,
+                  ),
+                ),
+                RefreshIndicator(
+                  onRefresh: _refresh,
+                  child: _OrderList(
+                    orders: data.past,
+                    onChanged: _refresh,
+                  ),
+                ),
               ],
             );
           },
@@ -136,21 +166,63 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 }
 
-class _OrderList extends StatelessWidget {
-  const _OrderList({required this.orders});
+class _OrderList extends StatefulWidget {
+  const _OrderList({required this.orders, required this.onChanged});
 
   final List<Order> orders;
+  final Future<void> Function() onChanged;
+
+  @override
+  State<_OrderList> createState() => _OrderListState();
+}
+
+class _OrderListState extends State<_OrderList> {
+  final _repo = const OrderRepository();
+  final _busy = <String>{};
+
+  Future<void> _cancel(Order order) async {
+    if (_busy.contains(order.id)) return;
+    setState(() => _busy.add(order.id));
+    try {
+      await _repo.cancelOrder(order.id);
+      await widget.onChanged();
+    } on AppException catch (e) {
+      if (e.code == 'UNAUTHENTICATED') {
+        await const AuthService().handleUnauthorized();
+        if (mounted) {
+          Navigator.pushNamed(context, logInScreenRoute);
+        }
+        return;
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message)),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy.remove(order.id));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final orders = widget.orders;
     if (orders.isEmpty) {
-      return const Center(child: Text("No orders yet"));
+      return ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(defaultPadding),
+        children: const [
+          Center(child: Text("No orders yet")),
+        ],
+      );
     }
     return ListView.builder(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(defaultPadding),
       itemCount: orders.length,
       itemBuilder: (context, index) {
         final order = orders[index];
+        final cancelling = _busy.contains(order.id);
         return Container(
           margin: const EdgeInsets.only(bottom: defaultPadding),
           padding: const EdgeInsets.all(defaultPadding),
@@ -184,12 +256,25 @@ class _OrderList extends StatelessWidget {
               const SizedBox(height: 8),
               Align(
                 alignment: Alignment.centerRight,
-                child: OutlinedButton(
-                  onPressed: () => customModalBottomSheet(
-                    context,
-                    child: _OrderDetailSheet(order: order),
-                  ),
-                  child: const Text("View"),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (order.status == OrderStatus.scheduled)
+                      TextButton(
+                        onPressed:
+                            cancelling ? null : () => _cancel(order),
+                        child: Text(cancelling
+                            ? "Cancelling..."
+                            : "Cancel"),
+                      ),
+                    OutlinedButton(
+                      onPressed: () => customModalBottomSheet(
+                        context,
+                        child: _OrderDetailSheet(order: order),
+                      ),
+                      child: const Text("View"),
+                    ),
+                  ],
                 ),
               ),
             ],

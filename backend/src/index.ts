@@ -23,6 +23,12 @@ const db = new Database(DB_PATH);
 db.exec("PRAGMA journal_mode = WAL;");
 db.exec("PRAGMA foreign_keys = ON;");
 db.exec(readFileSync(join(BACKEND_DIR, "schema.sql"), "utf8"));
+// Migration: skip_next flag added after the initial schema (idempotent;
+// plain ALTER is D1-portable).
+const subCols = (db.query("PRAGMA table_info(subscriptions)").all() as Row[]).map((c) => c.name);
+if (!subCols.includes("skip_next")) {
+  db.exec("ALTER TABLE subscriptions ADD COLUMN skip_next INTEGER NOT NULL DEFAULT 0");
+}
 await seedIfEmpty(db);
 
 // ---------- db helpers ----------
@@ -320,6 +326,115 @@ async function vendorSubscriptions(c: Ctx) {
   })));
 }
 
+// ---------- handlers: subscriptions (user owns only their rows) ----------
+const SUB_FREQUENCIES = new Set([
+  "every_day",
+  "alternate_days",
+  "specific_days",
+  "weekly",
+  "once_a_week",
+]);
+
+function toSub(s: Row) {
+  return {
+    id: s.id,
+    product_id: s.product_id,
+    product_name: s.product_name ?? s.product_id,
+    quantity: s.quantity,
+    frequency: s.frequency,
+    start_date: s.start_date,
+    delivery_time: s.delivery_time,
+    status: s.status,
+    next_delivery: s.next_delivery ?? null,
+    skip_next: Boolean(s.skip_next ?? 0),
+  };
+}
+
+const SUB_SELECT = `SELECT s.*, p.name AS product_name FROM subscriptions s
+  LEFT JOIN products p ON p.id = s.product_id`;
+
+async function listSubscriptions(c: Ctx) {
+  const user = c.get("user");
+  const rows = dbAll(`${SUB_SELECT} WHERE s.user_id = ? ORDER BY s.id DESC`, user.id);
+  return c.json(rows.map(toSub));
+}
+
+async function createSubscription(c: Ctx) {
+  const user = c.get("user");
+  const body = await readJson(c);
+  const productId = String(body?.productId ?? body?.product_id ?? "");
+  const quantity = Number(body?.quantity ?? 1);
+  const frequency = String(body?.frequency ?? "every_day");
+  const startDate = String(body?.startDate ?? body?.start_date ?? "");
+  const deliveryTime = String(body?.deliveryTime ?? body?.delivery_time ?? "");
+  if (!productId || !dbOne("SELECT id FROM products WHERE id = ?", productId)) {
+    return c.json(err("VALIDATION", "unknown productId"), 400);
+  }
+  if (!Number.isInteger(quantity) || quantity < 1) {
+    return c.json(err("VALIDATION", "quantity must be >= 1"), 400);
+  }
+  if (!SUB_FREQUENCIES.has(frequency)) {
+    return c.json(err("VALIDATION", "unknown frequency"), 400);
+  }
+  if (!startDate || !deliveryTime) {
+    return c.json(err("VALIDATION", "startDate and deliveryTime are required"), 400);
+  }
+  const r = dbRun(
+    "INSERT INTO subscriptions (user_id, product_id, quantity, frequency, start_date, delivery_time, status, next_delivery, skip_next) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, 0)",
+    user.id, productId, quantity, frequency, startDate, deliveryTime, startDate
+  );
+  const s = dbOne(`${SUB_SELECT} WHERE s.id = ?`, Number(r.lastInsertRowid)) as Row;
+  return c.json(toSub(s), 201);
+}
+
+async function updateSubscription(c: Ctx) {
+  const user = c.get("user");
+  const id = Number(c.req.param("id"));
+  const s = dbOne("SELECT id FROM subscriptions WHERE id = ? AND user_id = ?", id, user.id);
+  if (!s) return c.json(err("NOT_FOUND", "Subscription not found"), 404);
+  const body = await readJson(c);
+  const patch: string[] = [];
+  const params: any[] = [];
+  if (body?.quantity !== undefined) {
+    const q = Number(body.quantity);
+    if (!Number.isInteger(q) || q < 1) {
+      return c.json(err("VALIDATION", "quantity must be >= 1"), 400);
+    }
+    patch.push("quantity = ?");
+    params.push(q);
+  }
+  if (body?.frequency !== undefined) {
+    const f = String(body.frequency);
+    if (!SUB_FREQUENCIES.has(f)) {
+      return c.json(err("VALIDATION", "unknown frequency"), 400);
+    }
+    patch.push("frequency = ?");
+    params.push(f);
+  }
+  if (body?.deliveryTime !== undefined || body?.delivery_time !== undefined) {
+    patch.push("delivery_time = ?");
+    params.push(String(body.deliveryTime ?? body.delivery_time));
+  }
+  if (body?.status !== undefined) {
+    const st = String(body.status);
+    if (st !== "active" && st !== "paused") {
+      return c.json(err("VALIDATION", "status must be active or paused"), 400);
+    }
+    patch.push("status = ?");
+    params.push(st);
+  }
+  if (body?.skipNext !== undefined) {
+    patch.push("skip_next = ?");
+    params.push(body.skipNext ? 1 : 0);
+  }
+  if (patch.length === 0) {
+    return c.json(err("VALIDATION", "nothing to update"), 400);
+  }
+  dbRun(`UPDATE subscriptions SET ${patch.join(", ")} WHERE id = ?`, ...params, id);
+  const row = dbOne(`${SUB_SELECT} WHERE s.id = ?`, id) as Row;
+  return c.json(toSub(row));
+}
+
 // ---------- routes (thin: parse input, call handler) ----------
 app.get("/", (c) => c.json({ ok: true, service: "water-backend" }));
 app.post("/api/auth/register", registerHandler);
@@ -331,6 +446,9 @@ app.post("/api/addresses", createAddress);
 app.get("/api/orders", listOrders);
 app.post("/api/orders", createOrder);
 app.patch("/api/orders/:id/cancel", cancelOrder);
+app.get("/api/subscriptions", listSubscriptions);
+app.post("/api/subscriptions", createSubscription);
+app.patch("/api/subscriptions/:id", updateSubscription);
 app.get("/api/vendor/orders", vendorOrders);
 app.patch("/api/vendor/orders/:id", vendorUpdateStatus);
 app.get("/api/vendor/kpis", vendorKpis);

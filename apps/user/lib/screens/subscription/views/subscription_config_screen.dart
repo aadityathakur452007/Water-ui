@@ -5,7 +5,6 @@ import 'package:shop/models/product_model.dart';
 import 'package:shop/models/subscription_model.dart';
 import 'package:shop/repositories/product_repository.dart';
 import 'package:shop/route/route_constants.dart';
-
 const _months = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December"
@@ -56,6 +55,9 @@ class _SubscriptionConfigScreenState extends State<SubscriptionConfigScreen> {
                 'productId': product.id,
                 'qty': widget.qty,
                 'orderType': 'regular',
+                'frequency': frequencyToWire(_frequency),
+                'startDate': _dateLabel(_start),
+                'deliveryTime': _time.format(context),
               });
             },
             child: const Text("Continue"),

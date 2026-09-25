@@ -62,12 +62,27 @@ class VendorService {
     return ApiClient(token: await _sessions.readToken());
   }
 
-  static const _demoKpis = VendorKpis(
-    todayDeliveries: 3,
-    todayRevenue: 400,
-    activeSubscriptions: 1,
-    pendingOrders: 2,
-  );
+  static VendorKpis get _demoKpis {
+    final deliveredToday = _demoOrders
+        .where((o) => o.status == 'delivered' && o.createdAt == 'Today')
+        .toList();
+    final pending = _demoOrders
+        .where((o) =>
+            o.status == 'scheduled' ||
+            o.status == 'preparing' ||
+            o.status == 'out_for_delivery')
+        .length;
+    final activeSubs =
+        _demoSubs.where((s) => s.status == 'active').length;
+    final revenue =
+        deliveredToday.fold<num>(0, (sum, o) => sum + o.total);
+    return VendorKpis(
+      todayDeliveries: deliveredToday.length,
+      todayRevenue: revenue,
+      activeSubscriptions: activeSubs,
+      pendingOrders: pending,
+    );
+  }
 
   static final _demoOrders = [
     VendorOrder(
@@ -95,8 +110,81 @@ class VendorService {
       addressCity: 'Bhopal',
       slot: 'Every Day • 8:00 AM',
       type: 'regular',
-      status: 'active',
+      status: 'scheduled',
       createdAt: '20 Sept',
+    ),
+    VendorOrder(
+      id: 'WD-00122',
+      items: [
+        VendorOrderItem(
+            name: '1L Mineral Water Bottles (12-pack)', qty: 1, price: 110),
+      ],
+      total: 110,
+      addressLabel: 'Office',
+      addressLine: '45, Business Park',
+      addressCity: 'Bhopal',
+      slot: 'Today • 12:00 PM',
+      status: 'preparing',
+      type: 'one-time',
+      createdAt: 'Today',
+    ),
+    VendorOrder(
+      id: 'WD-00120',
+      items: [
+        VendorOrderItem(name: '20L Drinking Water Jar', qty: 1, price: 60),
+        VendorOrderItem(
+            name: 'Dispenser Cleaning Service', qty: 1, price: 99),
+      ],
+      total: 159,
+      addressLabel: 'Home',
+      addressLine: '78, Shanti Nagar',
+      addressCity: 'Bhopal',
+      slot: 'Today • 6:00 PM',
+      status: 'out_for_delivery',
+      type: 'one-time',
+      createdAt: 'Today',
+    ),
+    VendorOrder(
+      id: 'WD-00118',
+      items: [
+        VendorOrderItem(name: '20L Drinking Water Jar', qty: 3, price: 60),
+      ],
+      total: 180,
+      addressLabel: 'Shop',
+      addressLine: '12, Market Road',
+      addressCity: 'Bhopal',
+      slot: 'Today • 8:00 AM',
+      status: 'delivered',
+      type: 'one-time',
+      createdAt: 'Today',
+    ),
+    VendorOrder(
+      id: 'WD-00115',
+      items: [
+        VendorOrderItem(name: '5L Water Can', qty: 4, price: 40),
+      ],
+      total: 160,
+      addressLabel: 'Home',
+      addressLine: '90, Lake View',
+      addressCity: 'Bhopal',
+      slot: 'Today • 9:30 AM',
+      status: 'delivered',
+      type: 'regular',
+      createdAt: 'Today',
+    ),
+    VendorOrder(
+      id: 'WD-00110',
+      items: [
+        VendorOrderItem(name: '20L Drinking Water Jar', qty: 2, price: 60),
+      ],
+      total: 130,
+      addressLabel: 'Home',
+      addressLine: '33, Old Town',
+      addressCity: 'Bhopal',
+      slot: 'Yesterday • 8:00 AM',
+      status: 'cancelled',
+      type: 'one-time',
+      createdAt: '19 Sept',
     ),
   ];
 
@@ -154,6 +242,18 @@ class VendorService {
       frequency: 'Every Day',
       status: 'active',
       nextDelivery: 'Tomorrow • 8:00 AM',
+    ),
+    VendorSubscription(
+      quantity: 1,
+      frequency: 'Alternate Days',
+      status: 'active',
+      nextDelivery: 'Today • 12:00 PM',
+    ),
+    VendorSubscription(
+      quantity: 1,
+      frequency: 'Once a Week',
+      status: 'paused',
+      nextDelivery: 'Monday • 8:00 AM',
     ),
   ];
 

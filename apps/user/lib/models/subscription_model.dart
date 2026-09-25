@@ -12,6 +12,7 @@ class Subscription {
   final String deliveryTime;
   final SubscriptionStatus status;
   final String nextDelivery;
+  final bool skipNext;
 
   const Subscription({
     required this.id,
@@ -23,6 +24,7 @@ class Subscription {
     required this.deliveryTime,
     required this.status,
     required this.nextDelivery,
+    this.skipNext = false,
   });
 
   String get frequencyLabel {
@@ -44,6 +46,7 @@ class Subscription {
     String? deliveryTime,
     SubscriptionStatus? status,
     String? nextDelivery,
+    bool? skipNext,
   }) {
     return Subscription(
       id: id,
@@ -55,6 +58,7 @@ class Subscription {
       deliveryTime: deliveryTime ?? this.deliveryTime,
       status: status ?? this.status,
       nextDelivery: nextDelivery ?? this.nextDelivery,
+      skipNext: skipNext ?? this.skipNext,
     );
   }
 
@@ -85,7 +89,24 @@ class Subscription {
       nextDelivery: json['next_delivery']?.toString() ??
           json['nextDelivery']?.toString() ??
           '',
+      skipNext: json['skip_next'] == 1 ||
+          json['skip_next'] == true ||
+          json['skipNext'] == true,
     );
+  }
+}
+
+/// Wire value for [Frequency] (backend `SUB_FREQUENCIES` set).
+String frequencyToWire(Frequency f) {
+  switch (f) {
+    case Frequency.everyDay:
+      return 'every_day';
+    case Frequency.alternateDays:
+      return 'alternate_days';
+    case Frequency.specificDays:
+      return 'specific_days';
+    case Frequency.weekly:
+      return 'weekly';
   }
 }
 

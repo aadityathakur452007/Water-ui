@@ -2,11 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_ui_collection/flutter_ui_collection.dart';
 import 'package:shop/components/custom_modal_bottom_sheet.dart';
 import 'package:shop/components/skleton/skelton.dart';
+import 'package:shop/config/app_config.dart';
 import 'package:shop/constants.dart';
 import 'package:shop/models/cart_model.dart';
 import 'package:shop/models/subscription_model.dart';
 import 'package:shop/repositories/subscription_repository.dart';
+import 'package:shop/route/route_constants.dart';
 import 'package:shop/screens/product/views/components/product_quantity.dart';
+import 'package:shop/services/api_client.dart';
+import 'package:shop/services/auth_service.dart';
 
 const _freqLabels = {
   Frequency.everyDay: "Every Day",
@@ -72,6 +76,9 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
             );
           }
           if (snap.hasError && _subs == null) {
+            final err = snap.error;
+            final expired =
+                err is AppException && err.code == 'UNAUTHENTICATED';
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(defaultPadding * 1.5),
@@ -79,12 +86,16 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      "Could not load deliveries.",
+                      expired
+                          ? "Session expired."
+                          : "Could not load deliveries.",
                       style: Theme.of(context).textTheme.titleSmall,
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      "Check your connection and try again.",
+                      expired
+                          ? "Please log in again."
+                          : "Check your connection and try again.",
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                     const SizedBox(height: defaultPadding),
@@ -92,9 +103,23 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                       style: ElevatedButton.styleFrom(
                         minimumSize: const Size(0, 36),
                       ),
-                      onPressed: () => setState(
-                          () => _future = _repo.fetchSubscriptions()),
-                      child: const Text("Retry"),
+                      onPressed: () async {
+                        if (expired) {
+                          await const AuthService()
+                              .handleUnauthorized();
+                          if (context.mounted) {
+                            Navigator.pushNamedAndRemoveUntil(
+                              context,
+                              logInScreenRoute,
+                              (_) => false,
+                            );
+                          }
+                          return;
+                        }
+                        setState(() =>
+                            _future = _repo.fetchSubscriptions());
+                      },
+                      child: Text(expired ? "Log in" : "Retry"),
                     ),
                   ],
                 ),
@@ -124,9 +149,21 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
     );
   }
 
+  void _reload() => setState(() {
+        _subs = null;
+        _future = _repo.fetchSubscriptions();
+      });
+
+  void _fail(Object e) {
+    final msg = e is AppException ? e.message : 'Request failed. Try again.';
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(msg)));
+  }
+
   Widget _subCard(Subscription sub) {
     final bool paused = sub.status == SubscriptionStatus.paused;
-    final bool skipped = _skipped.contains(sub.id);
+    final bool skipped =
+        AppConfig.demoMode ? _skipped.contains(sub.id) : sub.skipNext;
     return Container(
       margin: const EdgeInsets.only(bottom: defaultPadding),
       padding: const EdgeInsets.all(defaultPadding),
@@ -171,23 +208,51 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                 child: const Text("Modify"),
               ),
               OutlinedButton(
-                onPressed: () => setState(() {
-                  final i = _subs!.indexOf(sub);
-                  _subs![i] = sub.copyWith(
-                    status: paused
-                        ? SubscriptionStatus.active
-                        : SubscriptionStatus.paused,
-                  );
-                }),
+                onPressed: () async {
+                  if (AppConfig.demoMode) {
+                    setState(() {
+                      final i = _subs!.indexOf(sub);
+                      _subs![i] = sub.copyWith(
+                        status: paused
+                            ? SubscriptionStatus.active
+                            : SubscriptionStatus.paused,
+                      );
+                    });
+                    return;
+                  }
+                  try {
+                    await _repo.updateRemote(
+                      sub.id,
+                      status: paused
+                          ? SubscriptionStatus.active
+                          : SubscriptionStatus.paused,
+                    );
+                    _reload();
+                  } catch (e) {
+                    _fail(e);
+                  }
+                },
                 child: Text(paused ? "Resume" : "Pause"),
               ),
               if (!paused)
                 TextButton(
-                  onPressed: () => setState(() {
-                    skipped
-                        ? _skipped.remove(sub.id)
-                        : _skipped.add(sub.id);
-                  }),
+                  onPressed: () async {
+                    if (AppConfig.demoMode) {
+                      setState(() {
+                        skipped
+                            ? _skipped.remove(sub.id)
+                            : _skipped.add(sub.id);
+                      });
+                      return;
+                    }
+                    try {
+                      await _repo.updateRemote(sub.id,
+                          skipNext: !skipped);
+                      _reload();
+                    } catch (e) {
+                      _fail(e);
+                    }
+                  },
                   child: Text(skipped ? "Unskip" : "Skip Next"),
                 ),
             ],
@@ -237,13 +302,28 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      final i = _subs!.indexOf(sub);
-                      _subs![i] =
-                          sub.copyWith(quantity: qty, frequency: freq);
-                    });
-                    Navigator.pop(context);
+                  onPressed: () async {
+                    if (AppConfig.demoMode) {
+                      setState(() {
+                        final i = _subs!.indexOf(sub);
+                        _subs![i] =
+                            sub.copyWith(quantity: qty, frequency: freq);
+                      });
+                      Navigator.pop(context);
+                      return;
+                    }
+                    try {
+                      await _repo.updateRemote(
+                        sub.id,
+                        quantity: qty,
+                        frequency: freq,
+                      );
+                      if (context.mounted) Navigator.pop(context);
+                      _reload();
+                    } catch (e) {
+                      if (context.mounted) Navigator.pop(context);
+                      _fail(e);
+                    }
                   },
                   child: const Text("Save"),
                 ),

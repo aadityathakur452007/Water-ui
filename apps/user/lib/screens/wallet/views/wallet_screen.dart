@@ -24,7 +24,14 @@ class WalletScreen extends StatelessWidget {
                 sliver: SliverToBoxAdapter(
                   child: WalletBalanceCard(
                     balance: 384.90,
-                    onTabChargeBalance: () {},
+                    onTabChargeBalance: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                              "Top-ups are not available yet. Pay cash or UPI on delivery."),
+                        ),
+                      );
+                    },
                   ),
                 ),
               ),

@@ -6,9 +6,12 @@ import 'package:shop/constants.dart';
 import 'package:shop/models/cart_model.dart';
 import 'package:shop/models/order_model.dart';
 import 'package:shop/repositories/order_repository.dart';
+import 'package:shop/config/app_config.dart';
 import 'package:shop/repositories/product_repository.dart';
+import 'package:shop/repositories/subscription_repository.dart';
 import 'package:shop/route/route_constants.dart';
 import 'package:shop/services/api_client.dart';
+import 'package:shop/services/auth_service.dart';
 
 enum _Payment { cod, upi }
 
@@ -26,6 +29,7 @@ class _CartScreenState extends State<CartScreen> {
   late List<CartItem> _items;
   bool _seeded = false;
   OrderType _orderType = OrderType.oneTime;
+  Map<String, dynamic> _subConfig = {};
   _Payment _payment = _Payment.cod;
   Order? _placed;
   bool _placing = false;
@@ -50,6 +54,11 @@ class _CartScreenState extends State<CartScreen> {
       _items = [CartItem(product: product, qty: map['qty'] as int? ?? 1)];
       if (map['orderType'] == 'regular') {
         _orderType = OrderType.regular;
+        _subConfig = {
+          'frequency': map['frequency'] as String? ?? 'every_day',
+          'startDate': map['startDate'] as String? ?? '',
+          'deliveryTime': map['deliveryTime'] as String? ?? '',
+        };
       }
     } else {
       _items = [
@@ -86,8 +95,55 @@ class _CartScreenState extends State<CartScreen> {
         slot: _slot,
         orderType: _orderType,
       );
+      if (!AppConfig.demoMode &&
+          _orderType == OrderType.regular &&
+          _subConfig.isNotEmpty &&
+          _items.isNotEmpty) {
+        // Persist the recurring schedule; the order itself is the source
+        // of truth, so a sub failure only surfaces a retry note.
+        try {
+          await const SubscriptionRepository().createRemoteRaw(
+            productId: _items.first.product.id,
+            quantity: _items.first.qty,
+            frequency:
+                _subConfig['frequency'] as String? ?? 'every_day',
+            startDate: _subConfig['startDate'] as String? ?? '',
+            deliveryTime:
+                _subConfig['deliveryTime'] as String? ?? '',
+          );
+        } on AppException catch (e) {
+          if (e.code == 'UNAUTHENTICATED') {
+            await const AuthService().handleUnauthorized();
+            if (mounted) {
+              Navigator.pushNamed(context, logInScreenRoute);
+            }
+          } else if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                    'Order placed. Recurring setup needs a retry in My Deliveries.'),
+              ),
+            );
+          }
+        }
+      }
       if (mounted) setState(() => _placed = remote);
-    } on AppException {
+    } on AppException catch (e) {
+      if (e.code == 'UNAUTHENTICATED') {
+        await const AuthService().handleUnauthorized();
+        if (mounted) {
+          Navigator.pushNamed(context, logInScreenRoute);
+        }
+        return;
+      }
+      if (e.code != 'NETWORK') {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(e.message)),
+          );
+        }
+        return;
+      }
       if (mounted) {
         setState(() {
           _placed = _orders.placeOrder(

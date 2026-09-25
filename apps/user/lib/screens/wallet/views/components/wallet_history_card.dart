@@ -49,8 +49,8 @@ class WalletHistoryCard extends StatelessWidget {
             ),
             trailing: Text(
               isReturn
-                  ? "+ \$${amount.toStringAsFixed(2)}"
-                  : "- \$${amount.toStringAsFixed(2)}",
+                  ? "+ ₹${amount.toStringAsFixed(2)}"
+                  : "- ₹${amount.toStringAsFixed(2)}",
               style: Theme.of(context)
                   .textTheme
                   .titleSmall!

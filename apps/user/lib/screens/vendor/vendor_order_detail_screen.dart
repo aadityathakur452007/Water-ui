@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../route/route_constants.dart';
 import '../../services/api_client.dart';
+import '../../services/auth_service.dart';
 import '../../services/vendor_service.dart';
 import 'vendor_order.dart';
 
@@ -47,6 +49,18 @@ class _VendorOrderDetailScreenState
         SnackBar(content: Text('Order marked ${status.replaceAll('_', ' ')}')),
       );
     } on AppException catch (e) {
+      final expired =
+          e.code == 'UNAUTHENTICATED' || e.status == 401;
+      if (expired) {
+        await const AuthService().handleUnauthorized();
+        if (!mounted) return;
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          logInScreenRoute,
+          (_) => false,
+        );
+        return;
+      }
       setState(() => _error = e.message);
     } catch (_) {
       setState(() => _error = 'Could not reach the server. Try again.');

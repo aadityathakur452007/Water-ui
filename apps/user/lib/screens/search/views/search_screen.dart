@@ -13,7 +13,10 @@ import 'package:shop/services/api_client.dart';
 /// `GET /api/products/search?q=`; falls back to the bundled catalog
 /// when the API is unreachable.
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({super.key});
+  const SearchScreen({super.key, this.initialQuery = ""});
+
+  /// Deep link from Shop categories (e.g. "20L Drinking Water Jar").
+  final String initialQuery;
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -21,13 +24,14 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   final _repo = const ProductRepository();
-  String _query = "";
+  late String _query;
   Future<List<ProductModel>>? _future;
 
   @override
   void initState() {
     super.initState();
-    _future = _load("");
+    _query = widget.initialQuery;
+    _future = _load(_query);
   }
 
   Future<List<ProductModel>> _load(String q) async {
@@ -62,7 +66,8 @@ class _SearchScreenState extends State<SearchScreen> {
             Padding(
               padding: const EdgeInsets.all(defaultPadding),
               child: SearchForm(
-                autofocus: true,
+                autofocus: _query.isEmpty,
+                initialValue: _query.isEmpty ? null : _query,
                 onChanged: _onQuery,
               ),
             ),

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../route/route_constants.dart';
+import '../../services/api_client.dart';
+import '../../services/auth_service.dart';
 import '../../services/vendor_service.dart';
 
 /// Vendor deliveries (subscriptions) — read-only list. Shows
@@ -45,21 +48,40 @@ class _VendorDeliveriesScreenState
           );
         }
         if (snap.hasError) {
+          final err = snap.error;
+          final expired = err is AppException &&
+              (err.code == 'UNAUTHENTICATED' || err.status == 401);
           return Center(
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('Could not load subscriptions.'),
+                  Text(expired
+                      ? 'Session expired.'
+                      : 'Could not load subscriptions.'),
                   const SizedBox(height: 4),
-                  Text('${snap.error}',
+                  Text(
+                      expired ? 'Please log in again.' : '${snap.error}',
                       textAlign: TextAlign.center,
                       style:
                           const TextStyle(color: Color(0xFF6E6E73))),
                   const SizedBox(height: 12),
                   OutlinedButton(
-                      onPressed: _refresh, child: const Text('Retry')),
+                      onPressed: expired
+                          ? () async {
+                              await const AuthService()
+                                  .handleUnauthorized();
+                              if (context.mounted) {
+                                Navigator.pushNamedAndRemoveUntil(
+                                  context,
+                                  logInScreenRoute,
+                                  (_) => false,
+                                );
+                              }
+                            }
+                          : _refresh,
+                      child: Text(expired ? 'Log in' : 'Retry')),
                 ],
               ),
             ),

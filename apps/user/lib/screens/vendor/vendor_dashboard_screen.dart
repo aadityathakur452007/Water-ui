@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_ui_collection/flutter_ui_collection.dart';
 
+import '../../route/route_constants.dart';
+import '../../services/api_client.dart';
+import '../../services/auth_service.dart';
 import '../../services/vendor_service.dart';
 
 /// Dashboard: KPI cards from GET /api/vendor/kpis.
@@ -48,26 +51,51 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen> {
           );
         }
         if (snap.hasError) {
+          final err = snap.error;
+          final expired = err is AppException &&
+              (err.code == 'UNAUTHENTICATED' || err.status == 401);
           return Center(
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('Could not load KPIs.'),
+                  Text(expired
+                      ? 'Session expired.'
+                      : 'Could not load KPIs.'),
                   const SizedBox(height: 4),
-                  Text('${snap.error}',
+                  Text(
+                      expired
+                          ? 'Please log in again.'
+                          : '${snap.error}',
                       textAlign: TextAlign.center,
                       style: const TextStyle(color: Color(0xFF6E6E73))),
                   const SizedBox(height: 12),
                   OutlinedButton(
-                      onPressed: _retry, child: const Text('Retry')),
+                      onPressed: expired
+                          ? () async {
+                              await const AuthService()
+                                  .handleUnauthorized();
+                              if (context.mounted) {
+                                Navigator.pushNamedAndRemoveUntil(
+                                  context,
+                                  logInScreenRoute,
+                                  (_) => false,
+                                );
+                              }
+                            }
+                          : _retry,
+                      child: Text(expired ? 'Log in' : 'Retry')),
                 ],
               ),
             ),
           );
         }
         final k = snap.data!;
+        final isEmpty = k.todayDeliveries == 0 &&
+            k.todayRevenue == 0 &&
+            k.activeSubscriptions == 0 &&
+            k.pendingOrders == 0;
         return RefreshIndicator(
           onRefresh: () async => _retry(),
           child: ListView(
@@ -99,20 +127,38 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen> {
               const Text('Today at a glance',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
-              UiBarChart(
-                data: [
-                  UiBarChartData(
-                      label: 'Deliveries',
-                      value: k.todayDeliveries.toDouble(),
-                      color: const Color(0xFF1B7BD6)),
-                  UiBarChartData(
-                      label: 'Pending',
-                      value: k.pendingOrders.toDouble(),
-                      color: const Color(0xFF6E6E73)),
-                ],
-                height: 180,
-                showValues: true,
-              ),
+              if (isEmpty)
+                const Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('No activity yet',
+                            style: TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.w600)),
+                        SizedBox(height: 4),
+                        Text(
+                            'New orders will appear here once customers book.'),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                UiBarChart(
+                  data: [
+                    UiBarChartData(
+                        label: 'Deliveries',
+                        value: k.todayDeliveries.toDouble(),
+                        color: const Color(0xFF1B7BD6)),
+                    UiBarChartData(
+                        label: 'Pending',
+                        value: k.pendingOrders.toDouble(),
+                        color: const Color(0xFF6E6E73)),
+                  ],
+                  height: 180,
+                  showValues: true,
+                ),
             ],
           ),
         );

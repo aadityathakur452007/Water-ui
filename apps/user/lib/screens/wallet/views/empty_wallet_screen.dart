@@ -19,7 +19,14 @@ class EmptyWalletScreen extends StatelessWidget {
               padding: const EdgeInsets.all(defaultPadding),
               child: WalletBalanceCard(
                 balance: 384.90,
-                onTabChargeBalance: () {},
+                onTabChargeBalance: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                          "Top-ups are not available yet. Pay cash or UPI on delivery."),
+                    ),
+                  );
+                },
               ),
             ),
             const Spacer(flex: 2),
@@ -38,7 +45,7 @@ class EmptyWalletScreen extends StatelessWidget {
               padding: EdgeInsets.symmetric(
                   horizontal: defaultPadding * 1.5, vertical: defaultPadding),
               child: Text(
-                "Customer network effects freemium. Advisor android paradigm shift product management. Customer disruptive crowdsource",
+                "No transactions yet. Your wallet activity will show up here.",
                 textAlign: TextAlign.center,
               ),
             ),

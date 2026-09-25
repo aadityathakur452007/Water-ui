@@ -141,14 +141,6 @@ Route<dynamic> generateRoute(RouteSettings settings) {
               isProductAvailable: args as bool? ?? true);
         },
       );
-    case productReviewsScreenRoute:
-      return MaterialPageRoute(
-        builder: (context) => const ProductReviewsScreen(),
-      );
-    // case addReviewsScreenRoute:
-    //   return MaterialPageRoute(
-    //     builder: (context) => const AddReviewScreen(),
-    //   );
     case homeScreenRoute:
       return MaterialPageRoute(
         builder: (context) => const HomeScreen(),
@@ -169,26 +161,18 @@ Route<dynamic> generateRoute(RouteSettings settings) {
       return MaterialPageRoute(
         builder: (context) => const DiscoverScreen(),
       );
-    case onSaleScreenRoute:
-      return MaterialPageRoute(
-        builder: (context) => const OnSaleScreen(),
-      );
-    case kidsScreenRoute:
-      return MaterialPageRoute(
-        builder: (context) => const KidsScreen(),
-      );
     case searchScreenRoute:
       return MaterialPageRoute(
-        builder: (context) => const SearchScreen(),
+        builder: (context) {
+          final args = settings.arguments;
+          return SearchScreen(
+              initialQuery: args is String ? args : "");
+        },
       );
     // case searchHistoryScreenRoute:
     //   return MaterialPageRoute(
     //     builder: (context) => const SearchHistoryScreen(),
     //   );
-    case bookmarkScreenRoute:
-      return MaterialPageRoute(
-        builder: (context) => const BookmarkScreen(),
-      );
     case entryPointScreenRoute:
       return MaterialPageRoute(
         builder: (context) => const EntryPoint(),
@@ -220,10 +204,6 @@ Route<dynamic> generateRoute(RouteSettings settings) {
     case notificationsScreenRoute:
       return MaterialPageRoute(
         builder: (context) => const NotificationsScreen(),
-      );
-    case noNotificationScreenRoute:
-      return MaterialPageRoute(
-        builder: (context) => const NoNotificationScreen(),
       );
     case enableNotificationScreenRoute:
       return MaterialPageRoute(
