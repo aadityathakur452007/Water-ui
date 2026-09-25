@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:shop/components/cart_button.dart';
 import 'package:shop/components/custom_modal_bottom_sheet.dart';
 import 'package:shop/components/product/product_card.dart';
@@ -42,6 +41,10 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     final bool available = product.available && widget.isProductAvailable;
+    // Filter before build so the current product leaves no gap.
+    final related = demoPopularProducts
+        .where((p) => p.id != product.id)
+        .toList();
     return Scaffold(
       bottomNavigationBar: available
           ? CartButton(
@@ -60,15 +63,6 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             SliverAppBar(
               backgroundColor: Theme.of(context).scaffoldBackgroundColor,
               floating: true,
-              actions: [
-                IconButton(
-                  onPressed: () {},
-                  icon: SvgPicture.asset("assets/icons/Bookmark.svg",
-                      colorFilter: ColorFilter.mode(
-                          Theme.of(context).textTheme.bodyLarge!.color!,
-                          BlendMode.srcIn)),
-                ),
-              ],
             ),
             ProductImages(images: [product.image]),
             ProductInfo(
@@ -103,6 +97,8 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               press: () {
                 customModalBottomSheet(
                   context,
+                  title: "Delivery Information",
+                  showClose: true,
                   child: Padding(
                     padding: const EdgeInsets.all(defaultPadding * 1.5),
                     child: Text(
@@ -127,16 +123,13 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 height: 220,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
-                  itemCount: demoPopularProducts.length,
+                  itemCount: related.length,
                   itemBuilder: (context, index) {
-                    final other = demoPopularProducts[index];
-                    if (other.id == product.id) {
-                      return const SizedBox.shrink();
-                    }
+                    final other = related[index];
                     return Padding(
                       padding: EdgeInsets.only(
                           left: defaultPadding,
-                          right: index == demoPopularProducts.length - 1
+                          right: index == related.length - 1
                               ? defaultPadding
                               : 0),
                       child: ProductCard(

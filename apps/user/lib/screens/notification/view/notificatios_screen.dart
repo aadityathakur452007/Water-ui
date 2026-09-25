@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:shop/constants.dart';
+import 'package:shop/route/route_constants.dart';
 
 class _WaterNotification {
   final String title;
@@ -10,6 +10,8 @@ class _WaterNotification {
   const _WaterNotification(this.title, this.body, this.time);
 }
 
+// Local seed: the backend contract exposes no notification endpoint, so
+// this list is illustrative copy (not live data) until one exists.
 const _notifications = [
   _WaterNotification("Order confirmed",
       "Your 2 × 20L water jars order #WD-00124 is confirmed.", "7:30 AM"),
@@ -35,14 +37,12 @@ class NotificationsScreen extends StatelessWidget {
           title: const Text("Notifications"),
           actions: [
             IconButton(
-              onPressed: () {},
-              icon: SvgPicture.asset(
-                "assets/icons/DotsV.svg",
-                colorFilter: ColorFilter.mode(
-                  Theme.of(context).iconTheme.color!,
-                  BlendMode.srcIn,
-                ),
-              ),
+              tooltip: "Notification settings",
+              onPressed: () {
+                Navigator.pushNamed(
+                    context, notificationOptionsScreenRoute);
+              },
+              icon: const Icon(Icons.settings_outlined),
             )
           ],
         ),

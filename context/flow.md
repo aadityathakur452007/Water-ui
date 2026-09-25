@@ -185,8 +185,17 @@ Home → ApiClient → Hono → SQLite → order/tracking reflects vendor update
 Auth: login/signup → sessions → Bearer token (shared_preferences)
 
 VENDOR APP (merged into unified app 2026-09-25 — see below; PII stripped by server)
-Login (role gate) → Dashboard (KPIs) → Orders (address+items only)
-  → advance status → user app sees new status on refresh
+Login (role gate) → Dashboard (KPIs, re-fetch on tab revisit + pull-refresh
+  awaits real future) → Orders (filter chips; 'all' sends NO status query via
+  ordersQuery(); count header; detail pops status string → list shows SnackBar;
+  cancel requires confirm dialog) → advance status (demo mirrors live guard:
+  forward-only, cancel from non-final, else CONFLICT) → user app sees new
+  status on refresh
+Deliveries (All/Active/Paused chips; nested product{id,name} parsed, frequency
+  humanized; empty = "No subscriptions yet.") → read-only
+Subscriptions mgmt (user): modify sheet has dirty/disabled Save + loading +
+  success toast; progress card labeled sample; repo targets real
+  GET/POST/PATCH /api/subscriptions in live mode
 Backend: docker compose up → :3000 (10.0.2.2:3000 from Android emulator)
 
 ### Unified auth + roles (2026-09-25, ADR-019)
@@ -202,15 +211,32 @@ Live (DEMO_MODE=false): API + loading/error states.
 ```
 HomeScreen
   ├─ DeliveryAddressHeader, SearchForm → searchScreenRoute
-  ├─ Categories (chips), WaterProducts (stepper) → productDetailsScreenRoute(id)
-  ├─ OrderAgain → OrderRepository.lastOrder() → cart + Reorder
-  └─ ActiveDelivery → subscriptions
+  ├─ Categories (stateful chips) → searchScreenRoute{query} per chip
+  ├─ WaterProducts (stepper) → productDetailsScreenRoute(id)
+  ├─ OrderAgain → OrderRepository.fetchOrders (NETWORK-only fallback + offline chip; error card + retry, hides only on genuine empty)
+  └─ ActiveDelivery → subscriptions (NETWORK-only fallback + offline chip; error card + retry, hides only on genuine empty)
 ProductDetailsScreen → spec table/qty → orderTypeScreenRoute{productId, qty}
 OrderTypeScreen → one-time → cart{…} | regular → subscriptionConfig → cart
-CartScreen → POST /api/orders → success → orders / home
-OrdersScreen (ONGOING/PAST) → View sheet → OrderProgress timeline
-SubscriptionsScreen → pause/skip/modify (local until user endpoints land)
+CartScreen → fetchAddresses (RadioListTile select, default first; defaultAddress fallback only when empty) → POST /api/orders{items, addressId|address, type, slot} → success (pushReplacement → orders{id}, auto-open detail sheet) | NETWORK failure → inline not-sent state + retry (never success)
+OrdersScreen (ONGOING/PAST, incl. preparing/out_for_delivery) → View sheet (titled + Close) → OrderProgress timeline; auto-opens sheet when route args carry an order id; empty → "Order water" CTA → discover
+SubscriptionsScreen → pause/skip/modify (live: GET/POST/PATCH /api/subscriptions; demo: local state)
 SearchScreen → ProductRepository.search() → details grid
+```
+
+### Purchase-flow notes (2026-09-25)
+- `Order.displayLabel` = `Order #<id> · <n> items · <slot>` — used in success view, order rows, detail sheets.
+- Demo order-book: `OrderRepository.placeOrder` inserts into `_demoOngoing`; `cancelOrder` replaces with `copyWith(status: cancelled)`; `fetchOrders` (demo) returns book + past so placed/cancelled reflect on reload.
+- Statuses: `scheduled→preparing→out_for_delivery→delivered` map 1:1 (unknown future → `active`); ongoing filter = scheduled/preparing/outForDelivery/active.
+- `customModalBottomSheet` opt-in `title` + `showClose` (other callers unaffected); `isScrollControlled: true` already.
+- Checkout payment: local `_Payment` radios + "Choose in Payment Methods" → `paymentMethodsScreenRoute` (initial arg `'cod'|'upi'`, pops String result to sync).
+
+### Backend order-total flow (2026-09-25 — fee fix, no route/shape change)
+```
+POST /api/orders → createOrder (backend/src/index.ts)
+  ├─ items validated against catalog (server prices; client totals ignored)
+  ├─ total = Σ price×qty + DELIVERY_FEE (flat 10, server-owned)
+  └─ stored total flows unchanged to: GET /api/orders, PATCH cancel,
+     GET /api/vendor/orders, vendor KPIs revenue (SUM(total))
 ```
 
 ### Route map (new/changed)
@@ -243,6 +269,31 @@ push(main, feature/**) / PR→main / dispatch
   First release `v1.0.0-phase1` live with installable APK.
 - Auto-release: every push to main/feature/** rebuilds and republishes the rolling
   `latest` prerelease (APK+AAB+SHA256) — no manual tagging.
+
+---
+
+## Account subtle fixes (2026-09-25, ADR-022)
+
+```
+SignUpScreen._signUp → AuthService.register → SessionStore.saveSession
+  → pushNamedAndRemoveUntil(entry_point, (_) => false)
+LoginScreen._login/_demoLogin → AuthService.login(role gate)
+  → pushNamedAndRemoveUntil(entry/vendor_home, (_) => false)
+  Forgot password → MaterialPageRoute(PasswordRecoveryScreen(initialEmail))
+AddressRepository: static _demoStore (seed home) → fetchAddresses copy-out;
+  createAddress appends (demo) / POST + re-fetch path unchanged (live)
+PaymentMethodsScreen(initial) → RadioGroup<String> → pop('cod'|'upi')
+  CONTRACT for Agent A checkout sync (null = no change)
+SearchScreen: controller + 300ms debounce → _load → sort sheet
+  (relevance/price) → "N results" + RichText highlight rows → details(id)
+ProfileScreen: SessionStore.readUser → skeleton → tiles;
+  Notification tile → notifications list; logout → confirm dialog → toast
+PreferencesScreen / NotificationOptionsScreen ↔ shared_preferences (keys
+  prefs_*, notif_*) + Saved/Reset toasts
+WalletScreen: history empty → EmptyWalletScreen (route kept, no dead end)
+main: _BootGate(SessionStore.readToken) → null ⇒ LoginScreen
+  else OnBordingScreen
+```
 
 ---
 

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-/// Notification preferences. In-app toggles with local state —
-/// there is no notification-preference endpoint in the backend.
+/// Notification preferences. Device-only toggles persisted via
+/// shared_preferences — there is no notification-preference endpoint
+/// in the backend.
 class NotificationOptionsScreen extends StatefulWidget {
   const NotificationOptionsScreen({super.key});
 
@@ -27,6 +29,35 @@ class _NotificationOptionsScreenState
   };
 
   @override
+  void initState() {
+    super.initState();
+    _restore();
+  }
+
+  String _key(String name) =>
+      'notif_${name.toLowerCase().replaceAll(RegExp(r'[^a-z]+'), '_')}';
+
+  Future<void> _restore() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      for (final name in _options.keys) {
+        final saved = prefs.getBool(_key(name));
+        if (saved != null) _options[name] = saved;
+      }
+    });
+  }
+
+  Future<void> _save(String name, bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_key(name), value);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Saved."), showCloseIcon: true),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final entries = _options.entries.toList();
     return Scaffold(
@@ -40,8 +71,10 @@ class _NotificationOptionsScreenState
             title: Text(entry.key),
             subtitle: Text(_hints[entry.key]!),
             value: entry.value,
-            onChanged: (v) =>
-                setState(() => _options[entry.key] = v),
+            onChanged: (v) {
+              setState(() => _options[entry.key] = v);
+              _save(entry.key, v);
+            },
           );
         },
       ),

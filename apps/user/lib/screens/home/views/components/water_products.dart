@@ -22,6 +22,7 @@ class _WaterProductsState extends State<WaterProducts> {
   final _repo = const ProductRepository();
   final Map<String, int> _qty = {};
   Future<List<ProductModel>>? _future;
+  bool _offline = false;
 
   @override
   void initState() {
@@ -31,8 +32,14 @@ class _WaterProductsState extends State<WaterProducts> {
 
   Future<List<ProductModel>> _load() async {
     try {
-      return await _repo.fetchAll();
-    } on AppException {
+      final products = await _repo.fetchAll();
+      if (mounted) setState(() => _offline = false);
+      return products;
+    } on AppException catch (e) {
+      // NETWORK-only fallback: auth/validation/server errors rethrow
+      // so the Retry path surfaces them honestly.
+      if (e.code != 'NETWORK') rethrow;
+      if (mounted) setState(() => _offline = true);
       return _repo.all();
     }
   }
@@ -44,9 +51,17 @@ class _WaterProductsState extends State<WaterProducts> {
       children: [
         Padding(
           padding: const EdgeInsets.all(defaultPadding),
-          child: Text(
-            "Water products",
-            style: Theme.of(context).textTheme.titleSmall,
+          child: Row(
+            children: [
+              Text(
+                "Water products",
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              if (_offline) ...[
+                const SizedBox(width: 8),
+                const _OfflineChip(),
+              ],
+            ],
           ),
         ),
         SizedBox(
@@ -100,8 +115,10 @@ class _WaterProductsState extends State<WaterProducts> {
                       quantity: qty,
                       onIncrement: () =>
                           setState(() => _qty[product.id] = qty + 1),
-                      onDecrement: () => setState(
-                          () => _qty[product.id] = qty > 1 ? qty - 1 : 1),
+                      onDecrement: qty <= 1
+                          ? null
+                          : () => setState(
+                              () => _qty[product.id] = qty - 1),
                       press: () {
                         Navigator.pushNamed(
                             context, productDetailsScreenRoute,
@@ -115,6 +132,38 @@ class _WaterProductsState extends State<WaterProducts> {
           ),
         )
       ],
+    );
+  }
+}
+
+/// Small "offline" hint shown when fallback demo data renders
+/// because the network was unreachable.
+class _OfflineChip extends StatelessWidget {
+  const _OfflineChip();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: const BoxDecoration(
+        color: Color(0xFFEAF4FC),
+        borderRadius: BorderRadius.all(Radius.circular(30)),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.wifi_off, size: 12, color: primaryColor),
+          SizedBox(width: 4),
+          Text(
+            "Offline",
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: primaryColor,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

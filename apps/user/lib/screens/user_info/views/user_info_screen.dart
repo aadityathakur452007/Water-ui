@@ -63,7 +63,7 @@ class UserInfoScreen extends StatelessWidget {
           }
           final name = user['name']?.toString() ?? 'User';
           final rows = <MapEntry<String, String>>[
-            for (final key in ['email', 'phone', 'role'])
+            for (final key in ['email', 'phone'])
               if ((user[key]?.toString() ?? '').isNotEmpty)
                 MapEntry(
                   key[0].toUpperCase() + key.substring(1),

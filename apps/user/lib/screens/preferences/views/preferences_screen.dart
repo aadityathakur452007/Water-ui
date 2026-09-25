@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shop/constants.dart';
 
 import 'components/prederence_list_tile.dart';
 
-/// In-app cookie preferences with local state. There is no
-/// preference endpoint in the backend, so choices apply on this
-/// device only.
+/// Device-only preferences. There is no preference endpoint in the
+/// backend, so choices persist via shared_preferences on this device.
 class PreferencesScreen extends StatefulWidget {
   const PreferencesScreen({super.key});
 
@@ -15,6 +15,12 @@ class PreferencesScreen extends StatefulWidget {
 
 class _PreferencesScreenState extends State<PreferencesScreen> {
   static const _defaults = [true, false, false, false];
+  static const _keys = [
+    'prefs_analytics',
+    'prefs_personalization',
+    'prefs_marketing',
+    'prefs_social',
+  ];
   var _active = [true, false, false, false];
 
   static const _items = [
@@ -41,13 +47,47 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _restore();
+  }
+
+  Future<void> _restore() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      for (var i = 0; i < _keys.length; i++) {
+        _active[i] = prefs.getBool(_keys[i]) ?? _defaults[i];
+      }
+    });
+  }
+
+  Future<void> _save() async {
+    final prefs = await SharedPreferences.getInstance();
+    for (var i = 0; i < _keys.length; i++) {
+      await prefs.setBool(_keys[i], _active[i]);
+    }
+  }
+
+  void _savedToast(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), showCloseIcon: true),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Cookie preferences"),
+        title: const Text("Preferences"),
         actions: [
           TextButton(
-            onPressed: () => setState(() => _active = [..._defaults]),
+            onPressed: () async {
+              setState(() => _active = [..._defaults]);
+              await _save();
+              _savedToast("Preferences reset.");
+            },
             child: const Text("Reset"),
           )
         ],
@@ -62,7 +102,11 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
                 titleText: _items[i].title,
                 subtitleTxt: _items[i].subtitle,
                 isActive: _active[i],
-                press: () => setState(() => _active[i] = !_active[i]),
+                press: () async {
+                  setState(() => _active[i] = !_active[i]);
+                  await _save();
+                  _savedToast("Saved.");
+                },
               ),
             ],
           ],

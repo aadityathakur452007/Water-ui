@@ -9,10 +9,52 @@ import 'package:shop/services/session_store.dart';
 import 'components/profile_card.dart';
 import 'components/profile_menu_item_list_tile.dart';
 
-void _showComingSoon(BuildContext context) {
+void _showComingSoon(BuildContext context, String message) {
   ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text('Coming soon')),
+    SnackBar(
+      showCloseIcon: true,
+      content: Row(
+        children: [
+          const Icon(Icons.upcoming_outlined,
+              color: Colors.white, size: 20),
+          const SizedBox(width: 8),
+          Expanded(child: Text(message)),
+        ],
+      ),
+    ),
   );
+}
+
+class _ProfileSkeleton extends StatelessWidget {
+  const _ProfileSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return const ListTile(
+      leading: CircleAvatar(radius: 28, backgroundColor: blackColor10),
+      title: _Bar(width: 120),
+      subtitle: _Bar(width: 180),
+    );
+  }
+}
+
+class _Bar extends StatelessWidget {
+  const _Bar({required this.width});
+
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(top: 6),
+      height: 12,
+      width: width,
+      decoration: BoxDecoration(
+        color: blackColor10,
+        borderRadius: BorderRadius.circular(6),
+      ),
+    );
+  }
 }
 
 class ProfileScreen extends StatelessWidget {
@@ -26,6 +68,9 @@ class ProfileScreen extends StatelessWidget {
           FutureBuilder<Map<String, dynamic>?>(
             future: const SessionStore().readUser(),
             builder: (context, snap) {
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const _ProfileSkeleton();
+              }
               final user = snap.data;
               return ProfileCard(
                 name: user?['name']?.toString() ?? "Guest",
@@ -142,7 +187,7 @@ class ProfileScreen extends StatelessWidget {
             title: "Notification",
             trilingText: "Off",
             press: () {
-              Navigator.pushNamed(context, enableNotificationScreenRoute);
+              Navigator.pushNamed(context, notificationsScreenRoute);
             },
           ),
           ProfileMenuListTile(
@@ -165,13 +210,9 @@ class ProfileScreen extends StatelessWidget {
             text: "Language",
             svgSrc: "assets/icons/Language.svg",
             press: () {
-              _showComingSoon(context);
+              _showComingSoon(context, "More languages coming soon.");
             },
-          ),
-          ProfileMenuListTile(
-            text: "Location",
-            svgSrc: "assets/icons/Location.svg",
-            press: () {},
+            isShowDivider: false,
           ),
           const SizedBox(height: defaultPadding),
           Padding(
@@ -186,13 +227,8 @@ class ProfileScreen extends StatelessWidget {
             text: "Get Help",
             svgSrc: "assets/icons/Help.svg",
             press: () {
-              _showComingSoon(context);
+              _showComingSoon(context, "Support chat coming soon.");
             },
-          ),
-          ProfileMenuListTile(
-            text: "FAQ",
-            svgSrc: "assets/icons/FAQ.svg",
-            press: () {},
             isShowDivider: false,
           ),
           const SizedBox(height: defaultPadding),
@@ -200,14 +236,45 @@ class ProfileScreen extends StatelessWidget {
           // Log Out
           ListTile(
             onTap: () async {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (dialogContext) => AlertDialog(
+                  title: const Text("Log out?"),
+                  content: const Text(
+                      "You will need to log in again to order water."),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext, false),
+                      child: const Text("Cancel"),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(dialogContext, true),
+                      child: const Text("Log out"),
+                    ),
+                  ],
+                ),
+              );
+              if (confirm != true || !context.mounted) return;
+              final messenger = ScaffoldMessenger.of(context);
               await const AuthService().logout();
-              if (context.mounted) {
-                Navigator.pushNamedAndRemoveUntil(
-                  context,
-                  logInScreenRoute,
-                  (_) => false,
-                );
-              }
+              if (!context.mounted) return;
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                logInScreenRoute,
+                (_) => false,
+              );
+              messenger.showSnackBar(
+                const SnackBar(
+                  content: Row(
+                    children: [
+                      Icon(Icons.check_circle_outline,
+                          color: Colors.white, size: 20),
+                      SizedBox(width: 8),
+                      Text("Logged out"),
+                    ],
+                  ),
+                ),
+              );
             },
             minLeadingWidth: 24,
             leading: SvgPicture.asset(

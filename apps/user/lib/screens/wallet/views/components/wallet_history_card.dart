@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shop/components/product/secondary_product_card.dart';
+import 'package:shop/models/cart_model.dart' show inr;
 
 import '../../../../constants.dart';
 
@@ -48,9 +49,7 @@ class WalletHistoryCard extends StatelessWidget {
               ),
             ),
             trailing: Text(
-              isReturn
-                  ? "+ ₹${amount.toStringAsFixed(2)}"
-                  : "- ₹${amount.toStringAsFixed(2)}",
+              isReturn ? "+ ${inr(amount)}" : "- ${inr(amount)}",
               style: Theme.of(context)
                   .textTheme
                   .titleSmall!

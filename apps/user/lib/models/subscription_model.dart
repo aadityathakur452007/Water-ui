@@ -1,4 +1,4 @@
-enum Frequency { everyDay, alternateDays, specificDays, weekly }
+enum Frequency { everyDay, alternateDays, specificDays, weekly, onceAWeek }
 
 enum SubscriptionStatus { active, paused }
 
@@ -36,6 +36,8 @@ class Subscription {
       case Frequency.specificDays:
         return "Specific Days";
       case Frequency.weekly:
+        return "Weekly";
+      case Frequency.onceAWeek:
         return "Once a Week";
     }
   }
@@ -64,9 +66,8 @@ class Subscription {
 
   /// Parses the backend subscription row:
   /// `{id,product_id,quantity,frequency,start_date,delivery_time,
-  /// status,next_delivery}`. No user-facing endpoint ships in the frozen
-  /// contract yet — this exists so the repository can adopt one without
-  /// touching call sites.
+  /// status,next_delivery}`. Served by GET/POST/PATCH /api/subscriptions
+  /// (backend/src/index.ts; absent from the frozen contract doc).
   factory Subscription.fromJson(Map<String, dynamic> json) {
     return Subscription(
       id: json['id']?.toString() ?? '',
@@ -107,6 +108,8 @@ String frequencyToWire(Frequency f) {
       return 'specific_days';
     case Frequency.weekly:
       return 'weekly';
+    case Frequency.onceAWeek:
+      return 'once_a_week';
   }
 }
 
@@ -119,8 +122,9 @@ Frequency parseFrequency(String? raw) {
     case 'specific_days':
       return Frequency.specificDays;
     case 'weekly':
-    case 'once_a_week':
       return Frequency.weekly;
+    case 'once_a_week':
+      return Frequency.onceAWeek;
     default:
       return Frequency.everyDay;
   }

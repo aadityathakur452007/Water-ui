@@ -30,7 +30,8 @@ class ProductQuantity extends StatelessWidget {
               height: 40,
               width: 40,
               child: OutlinedButton(
-                onPressed: onDecrement,
+                // Disabled state at min (null greys the button out).
+                onPressed: numOfItem <= 1 ? null : onDecrement,
                 style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.all(defaultPadding / 2)),
                 child: SvgPicture.asset(

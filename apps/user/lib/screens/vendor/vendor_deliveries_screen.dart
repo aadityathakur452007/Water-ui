@@ -19,6 +19,9 @@ class VendorDeliveriesScreen extends StatefulWidget {
 
 class _VendorDeliveriesScreenState
     extends State<VendorDeliveriesScreen> {
+  static const _filters = ['all', 'active', 'paused'];
+
+  String _filter = 'all';
   late Future<List<VendorSubscription>> _future;
 
   @override
@@ -32,7 +35,28 @@ class _VendorDeliveriesScreenState
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<VendorSubscription>>(
+    return Column(
+      children: [
+        SizedBox(
+          height: 52,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            itemCount: _filters.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (context, i) {
+              final f = _filters[i];
+              return ChoiceChip(
+                label: Text(f[0].toUpperCase() + f.substring(1)),
+                selected: f == _filter,
+                onSelected: (_) => setState(() => _filter = f),
+              );
+            },
+          ),
+        ),
+        Expanded(
+          child: FutureBuilder<List<VendorSubscription>>(
       future: _future,
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
@@ -87,9 +111,18 @@ class _VendorDeliveriesScreenState
             ),
           );
         }
-        final subs = snap.data!;
+        final all = snap.data!;
+        if (all.isEmpty) {
+          return const Center(child: Text('No subscriptions yet.'));
+        }
+        final subs = _filter == 'all'
+            ? all
+            : all
+                .where((s) => s.status.toLowerCase() == _filter)
+                .toList();
         if (subs.isEmpty) {
-          return const Center(child: Text('No active subscriptions.'));
+          return Center(
+              child: Text('No $_filter subscriptions yet.'));
         }
         return RefreshIndicator(
           onRefresh: () async => _refresh(),
@@ -103,11 +136,14 @@ class _VendorDeliveriesScreenState
                 child: ListTile(
                   leading: const Icon(Icons.repeat,
                       color: Color(0xFF1B7BD6)),
-                  title: Text('Qty ${s.quantity} \u00B7 ${s.frequency}',
+                  title: Text(
+                      s.productName.isEmpty
+                          ? 'Qty ${s.quantity} \u00B7 ${s.frequency}'
+                          : '${s.productName} \u00D7${s.quantity}',
                       style:
                           const TextStyle(fontWeight: FontWeight.w600)),
                   subtitle: Text(
-                      'Status: ${s.status}\nNext delivery: ${s.nextDelivery}'),
+                      '${s.frequency} \u00B7 Status: ${s.status}\nNext delivery: ${s.nextDelivery}'),
                   isThreeLine: true,
                 ),
               );
@@ -115,6 +151,9 @@ class _VendorDeliveriesScreenState
           ),
         );
       },
+          ),
+        ),
+      ],
     );
   }
 }

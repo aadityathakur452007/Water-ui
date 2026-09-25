@@ -13,9 +13,13 @@ import 'vendor_order_detail_screen.dart';
 /// PII RULE: each row shows ONLY address + items/qty + amount + slot.
 /// Never renders user name/phone/email (the model has no such fields).
 class VendorOrdersScreen extends StatefulWidget {
-  const VendorOrdersScreen({super.key, required this.service});
+  const VendorOrdersScreen(
+      {super.key, required this.service, this.onViewDashboard});
 
   final VendorService service;
+
+  /// Empty-state CTA target (VendorHome switches to the Dashboard tab).
+  final VoidCallback? onViewDashboard;
 
   @override
   State<VendorOrdersScreen> createState() => _VendorOrdersScreenState();
@@ -44,13 +48,24 @@ class _VendorOrdersScreenState extends State<VendorOrdersScreen> {
       () => _future = widget.service.fetchOrders(status: _status));
 
   Future<void> _openDetail(VendorOrder order) async {
-    final changed = await Navigator.of(context).push<bool>(
+    // The detail pops the new status string; the SnackBar lives here so
+    // it uses a live context (showing it after pop in the detail is a
+    // popped-context bug).
+    final updated = await Navigator.of(context).push<String>(
       MaterialPageRoute(
         builder: (_) => VendorOrderDetailScreen(
             service: widget.service, initial: order),
       ),
     );
-    if (changed == true) _refresh();
+    if (!mounted) return;
+    if (updated != null) {
+      _refresh();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content:
+                Text('Order marked ${updated.replaceAll('_', ' ')}')),
+      );
+    }
   }
 
   @override
@@ -138,17 +153,42 @@ class _VendorOrdersScreenState extends State<VendorOrdersScreen> {
               }
               final orders = snap.data!;
               if (orders.isEmpty) {
-                return const Center(
-                    child: Text('No orders for this filter.'));
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('No orders for this filter.'),
+                        if (widget.onViewDashboard != null) ...[
+                          const SizedBox(height: 8),
+                          TextButton(
+                            onPressed: widget.onViewDashboard,
+                            child: const Text('View dashboard'),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                );
               }
               return RefreshIndicator(
                 onRefresh: () async => _refresh(),
                 child: ListView.separated(
                   padding: const EdgeInsets.all(12),
-                  itemCount: orders.length,
+                  itemCount: orders.length + 1,
                   separatorBuilder: (_, __) => const SizedBox(height: 8),
                   itemBuilder: (context, i) {
-                    final o = orders[i];
+                    if (i == 0) {
+                      return Padding(
+                        padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
+                        child: Text(
+                          '${orders.length} ${orders.length == 1 ? 'order' : 'orders'}',
+                          style: const TextStyle(color: Color(0xFF6E6E73)),
+                        ),
+                      );
+                    }
+                    final o = orders[i - 1];
                     final itemsLabel = o.items
                         .map((e) => '${e.name} \u00D7${e.qty}')
                         .join(', ');

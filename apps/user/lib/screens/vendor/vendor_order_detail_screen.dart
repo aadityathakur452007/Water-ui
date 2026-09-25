@@ -36,6 +36,34 @@ class _VendorOrderDetailScreenState
   bool get _final =>
       _order.status == 'delivered' || _order.status == 'cancelled';
 
+  /// Capitalizes a wire value for display ('one-time' → 'One-time').
+  static String _display(String s) =>
+      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+
+  /// Destructive action: confirm before cancelling.
+  Future<void> _confirmCancel() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (d) => AlertDialog(
+        title: const Text('Cancel order?'),
+        content: const Text(
+            'The customer will not receive this delivery. This cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(d).pop(false),
+            child: const Text('Keep order'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(d).pop(true),
+            child: const Text('Cancel order',
+                style: TextStyle(color: Color(0xFFD32F2F))),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) _advance('cancelled');
+  }
+
   Future<void> _advance(String status) async {
     setState(() {
       _busy = true;
@@ -44,10 +72,9 @@ class _VendorOrderDetailScreenState
     try {
       await widget.service.updateStatus(_order.id, status);
       if (!mounted) return;
-      Navigator.of(context).pop(true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Order marked ${status.replaceAll('_', ' ')}')),
-      );
+      // Pop the new status; the caller shows the SnackBar (its context
+      // is still mounted, ours is not).
+      Navigator.of(context).pop(status);
     } on AppException catch (e) {
       final expired =
           e.code == 'UNAUTHENTICATED' || e.status == 401;
@@ -87,7 +114,8 @@ class _VendorOrderDetailScreenState
                       style: const TextStyle(
                           fontSize: 16, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 4),
-                  Text('Type: ${_order.type} \u00B7 Slot: ${_order.slot}'),
+                  Text(
+                      'Type: ${_display(_order.type)} \u00B7 Slot: ${_order.slot}'),
                   const SizedBox(height: 8),
                   const Text('Deliver to',
                       style: TextStyle(fontWeight: FontWeight.w600)),
@@ -141,7 +169,7 @@ class _VendorOrderDetailScreenState
           if (!_final) ...[
             const SizedBox(height: 8),
             OutlinedButton(
-              onPressed: _busy ? null : () => _advance('cancelled'),
+              onPressed: _busy ? null : _confirmCancel,
               child: const Text('Cancel order'),
             ),
           ],

@@ -2,6 +2,8 @@ enum OrderType { oneTime, regular }
 
 enum OrderStatus {
   scheduled,
+  preparing,
+  outForDelivery,
   active,
   delivered,
   cancelled,
@@ -79,11 +81,35 @@ class Order {
 
   String get statusLabel => orderStatusLabel(status);
 
+  /// Friendly one-line label used in the success view, order rows and
+  /// the order detail sheet instead of a raw `#id`.
+  /// Format: `Order #<id> · <n> items · <slot>` (n = total quantity).
+  String get displayLabel {
+    final count = items.fold<int>(0, (sum, e) => sum + e.qty);
+    return "Order #$id · $count ${count == 1 ? 'item' : 'items'} · $deliverySlot";
+  }
+
+  /// Returns a copy with the given fields replaced (demo order-book
+  /// uses this to mark orders cancelled without mutating seed data).
+  Order copyWith({OrderStatus? status}) {
+    return Order(
+      id: id,
+      items: items,
+      address: address,
+      orderType: orderType,
+      status: status ?? this.status,
+      totalAmount: totalAmount,
+      deliverySlot: deliverySlot,
+      createdAt: createdAt,
+    );
+  }
+
   /// Parses the backend order shape:
   /// `{id,type,status,total,slot,created_at,items,address}`.
-  /// Unknown in-transit statuses (`preparing`, `out_for_delivery`)
-  /// collapse to [OrderStatus.active] — the app only tracks
-  /// scheduled / active / delivered / cancelled.
+  /// Vendor lifecycle maps 1:1 (`scheduled→preparing→out_for_delivery
+  /// →delivered`); only unknown future in-transit states fall back to
+  /// [OrderStatus.active]. (Vendor side uses a separate VendorOrder
+  /// model — unaffected.)
   factory Order.fromJson(Map<String, dynamic> json) {
     final rawItems = json['items'];
     final items = rawItems is List
@@ -128,6 +154,12 @@ OrderStatus parseOrderStatus(String? raw) {
   switch (raw?.toLowerCase()) {
     case 'scheduled':
       return OrderStatus.scheduled;
+    case 'preparing':
+      return OrderStatus.preparing;
+    case 'out_for_delivery':
+      return OrderStatus.outForDelivery;
+    case 'active':
+      return OrderStatus.active;
     case 'delivered':
       return OrderStatus.delivered;
     case 'cancelled':
@@ -136,7 +168,7 @@ OrderStatus parseOrderStatus(String? raw) {
     case 'not_delivered':
       return OrderStatus.notDelivered;
     default:
-      // preparing, out_for_delivery and any future in-transit state.
+      // Unknown future in-transit state.
       return OrderStatus.active;
   }
 }
@@ -145,6 +177,10 @@ String orderStatusLabel(OrderStatus status) {
   switch (status) {
     case OrderStatus.scheduled:
       return "Scheduled";
+    case OrderStatus.preparing:
+      return "Preparing";
+    case OrderStatus.outForDelivery:
+      return "Out for delivery";
     case OrderStatus.active:
       return "Active";
     case OrderStatus.delivered:

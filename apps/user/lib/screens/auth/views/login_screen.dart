@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shop/config/app_config.dart';
 import 'package:shop/constants.dart';
 import 'package:shop/route/route_constants.dart';
+import 'package:shop/screens/auth/views/password_recovery_screen.dart';
 import 'package:shop/services/api_client.dart';
 import 'package:shop/services/auth_service.dart';
 
@@ -26,10 +27,37 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    for (final c in [_identifier, _password]) {
+      c.addListener(() {
+        if (_error != null && mounted) setState(() => _error = null);
+      });
+    }
+  }
+
+  @override
   void dispose() {
     _identifier.dispose();
     _password.dispose();
     super.dispose();
+  }
+
+  void _fail(String message) {
+    setState(() => _error = message);
+    // Dismissible error toast; the inline text below stays for a11y.
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        showCloseIcon: true,
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white, size: 20),
+            const SizedBox(width: 8),
+            Expanded(child: Text(message)),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _login() async {
@@ -50,12 +78,12 @@ class _LoginScreenState extends State<LoginScreen> {
         (user['role']?.toString() ?? 'user') == 'vendor'
             ? vendorHomeScreenRoute
             : entryPointScreenRoute,
-        ModalRoute.withName(logInScreenRoute),
+        (_) => false,
       );
     } on AppException catch (e) {
-      setState(() => _error = e.message);
+      _fail(e.message);
     } catch (_) {
-      setState(() => _error = 'Could not log in. Check connection.');
+      _fail('Could not log in. Check connection.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -81,10 +109,10 @@ class _LoginScreenState extends State<LoginScreen> {
       Navigator.pushNamedAndRemoveUntil(
         context,
         vendor ? vendorHomeScreenRoute : entryPointScreenRoute,
-        ModalRoute.withName(logInScreenRoute),
+        (_) => false,
       );
     } on AppException catch (e) {
-      setState(() => _error = e.message);
+      _fail(e.message);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -143,11 +171,21 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ],
                   Align(
+                    alignment: Alignment.centerRight,
                     child: TextButton(
                       child: const Text("Forgot password"),
                       onPressed: () {
-                        Navigator.pushNamed(
-                            context, passwordRecoveryScreenRoute);
+                        // Direct push (not via router) so the typed
+                        // identifier pre-fills recovery without a
+                        // router-contract change.
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => PasswordRecoveryScreen(
+                              initialEmail: _identifier.text.trim(),
+                            ),
+                          ),
+                        );
                       },
                     ),
                   ),

@@ -6,8 +6,11 @@ Future<dynamic> customModalBottomSheet(
   BuildContext context, {
   bool isDismissible = true,
   double? height,
+  String? title,
+  bool showClose = false,
   required Widget child,
 }) {
+  final showHeader = title != null || showClose;
   return showModalBottomSheet(
     context: context,
     clipBehavior: Clip.hardEdge,
@@ -23,7 +26,47 @@ Future<dynamic> customModalBottomSheet(
     ),
     builder: (context) => SizedBox(
       height: height ?? MediaQuery.of(context).size.height * 0.75,
-      child: child,
+      child: showHeader
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    defaultPadding * 1.5,
+                    defaultPadding,
+                    defaultPadding / 2,
+                    0,
+                  ),
+                  child: Row(
+                    children: [
+                      if (title != null)
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleSmall!
+                                .copyWith(fontWeight: FontWeight.w600),
+                          ),
+                        )
+                      else
+                        const Spacer(),
+                      if (showClose)
+                        IconButton(
+                          tooltip: "Close",
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.close),
+                        ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: SingleChildScrollView(child: child),
+                ),
+              ],
+            )
+          : child,
     ),
   );
 }

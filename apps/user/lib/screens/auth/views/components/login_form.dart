@@ -40,6 +40,7 @@ class _LogInFormState extends State<LogInForm> {
   Widget build(BuildContext context) {
     return Form(
       key: widget.formKey,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
       child: Column(
         children: [
           TextFormField(
@@ -48,6 +49,7 @@ class _LogInFormState extends State<LogInForm> {
             textInputAction: TextInputAction.next,
             keyboardType: TextInputType.emailAddress,
             decoration: InputDecoration(
+              labelText: "Email or phone",
               hintText: "Email or phone",
               prefixIcon: Padding(
                 padding:
@@ -74,6 +76,7 @@ class _LogInFormState extends State<LogInForm> {
             obscureText: _obscure,
             textInputAction: TextInputAction.done,
             decoration: InputDecoration(
+              labelText: "Password",
               hintText: "Password",
               prefixIcon: Padding(
                 padding:

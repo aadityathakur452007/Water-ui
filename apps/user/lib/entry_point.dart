@@ -110,7 +110,7 @@ class _EntryPointState extends State<EntryPoint> {
           // selectedLabelStyle: TextStyle(color: primaryColor),
           selectedFontSize: 12,
           selectedItemColor: primaryColor,
-          unselectedItemColor: Colors.transparent,
+          unselectedItemColor: blackColor60,
           items: [
             BottomNavigationBarItem(
               icon: svgIcon("assets/icons/Shop.svg"),

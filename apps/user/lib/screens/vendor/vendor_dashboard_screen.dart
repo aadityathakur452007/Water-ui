@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_ui_collection/flutter_ui_collection.dart';
 
+import '../../models/cart_model.dart';
 import '../../route/route_constants.dart';
 import '../../services/api_client.dart';
 import '../../services/auth_service.dart';
@@ -32,6 +33,12 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen> {
   }
 
   void _retry() => setState(() => _future = widget.service.fetchKpis());
+
+  /// Pull-refresh awaits the real fetch (not just the setState rebuild).
+  Future<void> _reload() async {
+    setState(() => _future = widget.service.fetchKpis());
+    await _future;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -97,7 +104,7 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen> {
             k.activeSubscriptions == 0 &&
             k.pendingOrders == 0;
         return RefreshIndicator(
-          onRefresh: () async => _retry(),
+          onRefresh: _reload,
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
@@ -109,7 +116,7 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen> {
                     color: const Color(0xFF1B7BD6)),
                 UiKpiData(
                     label: 'Today revenue',
-                    value: '\u20B9${k.todayRevenue}',
+                    value: inr(k.todayRevenue.toDouble()),
                     icon: UiIcons.cart,
                     color: const Color(0xFF1B7BD6)),
                 UiKpiData(

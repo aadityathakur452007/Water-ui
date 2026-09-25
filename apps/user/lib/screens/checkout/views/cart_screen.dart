@@ -5,6 +5,7 @@ import 'package:shop/components/network_image_with_loader.dart';
 import 'package:shop/constants.dart';
 import 'package:shop/models/cart_model.dart';
 import 'package:shop/models/order_model.dart';
+import 'package:shop/repositories/address_repository.dart';
 import 'package:shop/repositories/order_repository.dart';
 import 'package:shop/config/app_config.dart';
 import 'package:shop/repositories/product_repository.dart';
@@ -33,6 +34,48 @@ class _CartScreenState extends State<CartScreen> {
   _Payment _payment = _Payment.cod;
   Order? _placed;
   bool _placing = false;
+  // Honest offline state: set when the order could NOT be sent.
+  // The success view only ever renders for a truly placed order.
+  String? _orderError;
+
+  List<Address> _addresses = [];
+  String? _selectedAddressId;
+  bool _loadingAddresses = true;
+  bool _addrOffline = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAddresses();
+  }
+
+  Future<void> _loadAddresses() async {
+    try {
+      final list = await const AddressRepository().fetchAddresses();
+      if (!mounted) return;
+      setState(() {
+        _addresses = list;
+        _selectedAddressId = list.isEmpty ? null : list.first.id;
+        _loadingAddresses = false;
+      });
+    } on AppException catch (e) {
+      if (e.code == 'UNAUTHENTICATED') {
+        await const AuthService().handleUnauthorized();
+        if (mounted) {
+          Navigator.pushNamedAndRemoveUntil(
+              context, logInScreenRoute, (_) => false);
+        }
+        return;
+      }
+      if (!mounted) return;
+      setState(() {
+        _addresses = [];
+        _selectedAddressId = null;
+        _loadingAddresses = false;
+        _addrOffline = e.code == 'NETWORK';
+      });
+    }
+  }
 
   @override
   void didChangeDependencies() {
@@ -78,7 +121,10 @@ class _CartScreenState extends State<CartScreen> {
 
   Future<void> _placeOrder() async {
     if (_items.isEmpty || _placing) return;
-    setState(() => _placing = true);
+    setState(() {
+      _placing = true;
+      _orderError = null;
+    });
     final lines = _items
         .map((e) => OrderItem(
               productId: e.product.id,
@@ -88,12 +134,21 @@ class _CartScreenState extends State<CartScreen> {
             ))
         .toList();
     try {
-      // Real API first (`POST /api/orders`); offline falls back to the
-      // local confirmation so checkout still demonstrates the flow.
+      // `POST /api/orders` with the selected address (contract requires
+      // addressId|address). Falls back to the default address only when
+      // the address list is empty.
       final remote = await _orders.createOrder(
         items: lines,
         slot: _slot,
         orderType: _orderType,
+        addressId: _selectedAddressId,
+        address: _selectedAddressId == null
+            ? {
+                'label': defaultAddress.label,
+                'line': defaultAddress.line,
+                'city': defaultAddress.city,
+              }
+            : null,
       );
       if (!AppConfig.demoMode &&
           _orderType == OrderType.regular &&
@@ -115,7 +170,8 @@ class _CartScreenState extends State<CartScreen> {
           if (e.code == 'UNAUTHENTICATED') {
             await const AuthService().handleUnauthorized();
             if (mounted) {
-              Navigator.pushNamed(context, logInScreenRoute);
+              Navigator.pushNamedAndRemoveUntil(
+                  context, logInScreenRoute, (_) => false);
             }
           } else if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -132,7 +188,8 @@ class _CartScreenState extends State<CartScreen> {
       if (e.code == 'UNAUTHENTICATED') {
         await const AuthService().handleUnauthorized();
         if (mounted) {
-          Navigator.pushNamed(context, logInScreenRoute);
+          Navigator.pushNamedAndRemoveUntil(
+              context, logInScreenRoute, (_) => false);
         }
         return;
       }
@@ -144,14 +201,13 @@ class _CartScreenState extends State<CartScreen> {
         }
         return;
       }
+      // NETWORK: never show the success view for an unsent order.
+      // The cart is kept intact with an explicit not-sent state + retry.
       if (mounted) {
         setState(() {
-          _placed = _orders.placeOrder(
-            items: lines,
-            total: _total,
-            orderType: _orderType,
-            deliverySlot: _slot,
-          );
+          _orderError =
+              "Could not reach the server — your order was NOT sent. "
+              "It is still in your cart. Check your connection and try again.";
         });
       }
     } finally {
@@ -159,9 +215,62 @@ class _CartScreenState extends State<CartScreen> {
     }
   }
 
+  /// Opens the payment-methods screen and syncs the local selection
+  /// with the popped String result ('cod'|'upi'). A null result (back
+  /// without choosing) leaves the local selection unchanged.
+  Future<void> _pickPaymentMethod() async {
+    final result = await Navigator.pushNamed(
+      context,
+      paymentMethodsScreenRoute,
+      arguments: _payment == _Payment.upi ? 'upi' : 'cod',
+    );
+    if (!mounted) return;
+    if (result == 'upi') {
+      setState(() => _payment = _Payment.upi);
+    } else if (result == 'cod') {
+      setState(() => _payment = _Payment.cod);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_placed != null) return _SuccessView(order: _placed!);
+    if (_items.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(title: const Text("Checkout")),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(defaultPadding * 1.5),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.water_drop_outlined,
+                    size: 56, color: primaryColor),
+                const SizedBox(height: defaultPadding),
+                Text(
+                  "Your cart is empty",
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleSmall!
+                      .copyWith(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "Add some water to get started.",
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+                const SizedBox(height: defaultPadding),
+                ElevatedButton(
+                  onPressed: () => Navigator.pushNamed(
+                      context, discoverScreenRoute),
+                  child: const Text("Browse water"),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     return Scaffold(
       appBar: AppBar(title: const Text("Checkout")),
       bottomNavigationBar: CartButton(
@@ -173,6 +282,39 @@ class _CartScreenState extends State<CartScreen> {
       body: ListView(
         padding: const EdgeInsets.all(defaultPadding),
         children: [
+          if (_orderError != null) ...[
+            Container(
+              padding: const EdgeInsets.all(defaultPadding),
+              decoration: BoxDecoration(
+                border: Border.all(color: errorColor),
+                borderRadius: const BorderRadius.all(
+                    Radius.circular(defaultBorderRadious)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Order not sent",
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleSmall!
+                        .copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _orderError!,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: _placeOrder,
+                    child: const Text("Retry"),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: defaultPadding),
+          ],
           _sectionTitle(context, "Order Summary"),
           ..._items.map(_cartRow),
           const Divider(height: defaultPadding * 2),
@@ -217,31 +359,77 @@ class _CartScreenState extends State<CartScreen> {
           const SizedBox(height: defaultPadding),
           _sectionTitle(context, "Delivery Address"),
           const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(defaultPadding),
-            decoration: BoxDecoration(
-              border: Border.all(color: Theme.of(context).dividerColor),
-              borderRadius: const BorderRadius.all(
-                  Radius.circular(defaultBorderRadious)),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    "${defaultAddress.label}\n${defaultAddress.line}\n${defaultAddress.city}",
-                    style: const TextStyle(height: 1.5),
+          if (_loadingAddresses)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text("Loading addresses..."),
+            )
+          else if (_addresses.isEmpty)
+            _fallbackAddressBox(context)
+          else
+            Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: Theme.of(context).dividerColor),
+                borderRadius: const BorderRadius.all(
+                    Radius.circular(defaultBorderRadious)),
+              ),
+              child: Column(
+                children: [
+                  if (_addrOffline)
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(
+                          defaultPadding, 8, defaultPadding, 0),
+                      child: Row(
+                        children: [
+                          Icon(Icons.wifi_off,
+                              size: 12, color: primaryColor),
+                          SizedBox(width: 4),
+                          Text(
+                            "Offline — showing saved addresses",
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: primaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  RadioGroup<String>(
+                    groupValue: _selectedAddressId,
+                    onChanged: (v) =>
+                        setState(() => _selectedAddressId = v),
+                    child: Column(
+                      children: [
+                        for (final a in _addresses)
+                          RadioListTile<String>(
+                            value: a.id,
+                            title: Text(
+                                "${a.label} · ${a.line}, ${a.city}"),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 8),
+                            dense: true,
+                          ),
+                      ],
+                    ),
                   ),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pushNamed(
-                      context, addressesScreenRoute),
-                  child: const Text("Change"),
-                ),
-              ],
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () => Navigator.pushNamed(
+                          context, addressesScreenRoute),
+                      child: const Text("Add / Change"),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
           const SizedBox(height: defaultPadding),
           _sectionTitle(context, "Payment"),
+          Text(
+            "Pay on delivery",
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
           RadioGroup<_Payment>(
             groupValue: _payment,
             onChanged: (v) => setState(() => _payment = v ?? _Payment.cod),
@@ -259,6 +447,41 @@ class _CartScreenState extends State<CartScreen> {
                 ),
               ],
             ),
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: _pickPaymentMethod,
+              child: const Text("Choose in Payment Methods"),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Shown only when the address list is empty (genuine-empty or
+  /// load failure) — keeps the contract-required address fallback.
+  Widget _fallbackAddressBox(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(defaultPadding),
+      decoration: BoxDecoration(
+        border: Border.all(color: Theme.of(context).dividerColor),
+        borderRadius: const BorderRadius.all(
+            Radius.circular(defaultBorderRadious)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              "${defaultAddress.label}\n${defaultAddress.line}\n${defaultAddress.city}",
+              style: const TextStyle(height: 1.5),
+            ),
+          ),
+          TextButton(
+            onPressed: () =>
+                Navigator.pushNamed(context, addressesScreenRoute),
+            child: const Text("Change"),
           ),
         ],
       ),
@@ -450,7 +673,11 @@ class _SuccessView extends StatelessWidget {
               Text("Order Confirmed",
                   style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 4),
-              Text("Order #${order.id}",
+              Text("Thanks! Your water is on its way.",
+                  style: Theme.of(context).textTheme.bodyMedium),
+              const SizedBox(height: 4),
+              Text(order.displayLabel,
+                  textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyMedium),
               const SizedBox(height: defaultPadding),
               Text(order.itemsSummary,
@@ -469,8 +696,11 @@ class _SuccessView extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () => Navigator.pushNamed(
-                      context, ordersScreenRoute),
+                  // Replacement (no back-stack pile-up) + the real order
+                  // id so Orders auto-opens this order's detail sheet.
+                  onPressed: () => Navigator.pushReplacementNamed(
+                      context, ordersScreenRoute,
+                      arguments: order.id),
                   child: const Text("View Order"),
                 ),
               ),

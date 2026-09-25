@@ -16,7 +16,8 @@ const _freqLabels = {
   Frequency.everyDay: "Every Day",
   Frequency.alternateDays: "Alternate Days",
   Frequency.specificDays: "Specific Days",
-  Frequency.weekly: "Once a Week",
+  Frequency.weekly: "Weekly",
+  Frequency.onceAWeek: "Once a Week",
 };
 
 /// Water-blue tokens scoped ONLY to the library stat/progress widgets.
@@ -263,74 +264,107 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
   }
 
   void _openModify(Subscription sub) {
+    // Outer context for the success toast (the sheet context is gone
+    // after pop).
+    final pageContext = context;
     int qty = sub.quantity;
     Frequency freq = sub.frequency;
+    bool saving = false;
     customModalBottomSheet(
       context,
       child: StatefulBuilder(
-        builder: (context, setSheet) => Padding(
-          padding: const EdgeInsets.all(defaultPadding * 1.5),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text("Modify delivery",
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleSmall!
-                      .copyWith(fontWeight: FontWeight.w600)),
-              const SizedBox(height: defaultPadding),
-              ProductQuantity(
-                numOfItem: qty,
-                onIncrement: () => setSheet(() => qty++),
-                onDecrement: () =>
-                    setSheet(() => qty = qty > 1 ? qty - 1 : 1),
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<Frequency>(
-                initialValue: freq,
-                decoration: const InputDecoration(labelText: "Frequency"),
-                items: Frequency.values
-                    .map((f) => DropdownMenuItem(
-                          value: f,
-                          child: Text(_freqLabels[f]!),
-                        ))
-                    .toList(),
-                onChanged: (v) => setSheet(() => freq = v ?? freq),
-              ),
-              const SizedBox(height: defaultPadding),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () async {
-                    if (AppConfig.demoMode) {
-                      setState(() {
-                        final i = _subs!.indexOf(sub);
-                        _subs![i] =
-                            sub.copyWith(quantity: qty, frequency: freq);
-                      });
-                      Navigator.pop(context);
-                      return;
-                    }
-                    try {
-                      await _repo.updateRemote(
-                        sub.id,
-                        quantity: qty,
-                        frequency: freq,
-                      );
-                      if (context.mounted) Navigator.pop(context);
-                      _reload();
-                    } catch (e) {
-                      if (context.mounted) Navigator.pop(context);
-                      _fail(e);
-                    }
-                  },
-                  child: const Text("Save"),
+        builder: (context, setSheet) {
+          final dirty = qty != sub.quantity || freq != sub.frequency;
+          return Padding(
+            padding: const EdgeInsets.all(defaultPadding * 1.5),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Modify delivery",
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleSmall!
+                        .copyWith(fontWeight: FontWeight.w600)),
+                const SizedBox(height: defaultPadding),
+                ProductQuantity(
+                  numOfItem: qty,
+                  onIncrement: () => setSheet(() => qty++),
+                  onDecrement: () =>
+                      setSheet(() => qty = qty > 1 ? qty - 1 : 1),
                 ),
-              ),
-            ],
-          ),
-        ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<Frequency>(
+                  initialValue: freq,
+                  decoration:
+                      const InputDecoration(labelText: "Frequency"),
+                  items: Frequency.values
+                      .map((f) => DropdownMenuItem(
+                            value: f,
+                            child: Text(_freqLabels[f]!),
+                          ))
+                      .toList(),
+                  onChanged: (v) => setSheet(() => freq = v ?? freq),
+                ),
+                const SizedBox(height: defaultPadding),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: (saving || !dirty)
+                        ? null
+                        : () async {
+                            setSheet(() => saving = true);
+                            if (AppConfig.demoMode) {
+                              setState(() {
+                                final i = _subs!.indexOf(sub);
+                                _subs![i] = sub.copyWith(
+                                    quantity: qty, frequency: freq);
+                              });
+                              if (pageContext.mounted) {
+                                Navigator.pop(context);
+                                ScaffoldMessenger.of(pageContext)
+                                    .showSnackBar(const SnackBar(
+                                        content:
+                                            Text("Delivery updated")));
+                              }
+                              return;
+                            }
+                            try {
+                              await _repo.updateRemote(
+                                sub.id,
+                                quantity: qty,
+                                frequency: freq,
+                              );
+                              if (context.mounted) {
+                                Navigator.pop(context);
+                              }
+                              _reload();
+                              if (pageContext.mounted) {
+                                ScaffoldMessenger.of(pageContext)
+                                    .showSnackBar(const SnackBar(
+                                        content:
+                                            Text("Delivery updated")));
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                Navigator.pop(context);
+                              }
+                              _fail(e);
+                            }
+                          },
+                    child: saving
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white))
+                        : const Text("Save"),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -381,11 +415,13 @@ class _ProgressCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("September Delivery",
+          Text("Delivery summary",
               style: Theme.of(context)
                   .textTheme
                   .titleSmall!
                   .copyWith(fontWeight: FontWeight.w600)),
+          Text("Sample figures",
+              style: Theme.of(context).textTheme.bodySmall),
           const SizedBox(height: 8),
           // Library stat + progress displays (water-blue tokens above).
           UiTheme(

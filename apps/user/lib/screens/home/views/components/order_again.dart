@@ -23,6 +23,7 @@ class OrderAgain extends StatefulWidget {
 class _OrderAgainState extends State<OrderAgain> {
   final _repo = const OrderRepository();
   Future<Order?>? _future;
+  bool _offline = false;
 
   @override
   void initState() {
@@ -30,18 +31,29 @@ class _OrderAgainState extends State<OrderAgain> {
     _future = _load();
   }
 
+  static bool _isOngoing(Order o) =>
+      o.status == OrderStatus.scheduled ||
+      o.status == OrderStatus.preparing ||
+      o.status == OrderStatus.outForDelivery ||
+      o.status == OrderStatus.active;
+
   Future<Order?> _load() async {
     try {
       final remote = await _repo.fetchOrders();
-      final ongoing = remote.where((o) =>
-          o.status == OrderStatus.scheduled ||
-          o.status == OrderStatus.active);
+      if (mounted) setState(() => _offline = false);
+      final ongoing = remote.where(_isOngoing);
       if (ongoing.isNotEmpty) return ongoing.first;
       return _repo.lastOrder();
-    } on AppException {
+    } on AppException catch (e) {
+      // NETWORK-only fallback: other errors rethrow so the error
+      // card below explains instead of silently shrinking.
+      if (e.code != 'NETWORK') rethrow;
+      if (mounted) setState(() => _offline = true);
       return _repo.lastOrder();
     }
   }
+
+  void _retry() => setState(() => _future = _load());
 
   @override
   Widget build(BuildContext context) {
@@ -63,7 +75,58 @@ class _OrderAgainState extends State<OrderAgain> {
             ],
           );
         }
-        if (snap.hasError) return const SizedBox.shrink();
+        if (snap.hasError) {
+          // Explain instead of shrinking: genuine-empty still hides
+          // below, but a failed load gets a message + retry.
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(defaultPadding),
+                child: Text(
+                  "Order again",
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+              ),
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: defaultPadding),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(defaultPadding),
+                  decoration: BoxDecoration(
+                    border:
+                        Border.all(color: Theme.of(context).dividerColor),
+                    borderRadius: const BorderRadius.all(
+                        Radius.circular(defaultBorderRadious)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Could not load your last order.",
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleSmall!
+                            .copyWith(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        "Check your connection and try again.",
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: _retry,
+                        child: const Text("Retry"),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
         final last = snap.data;
         if (last == null || last.items.isEmpty) {
           return const SizedBox.shrink();
@@ -74,9 +137,41 @@ class _OrderAgainState extends State<OrderAgain> {
           children: [
             Padding(
               padding: const EdgeInsets.all(defaultPadding),
-              child: Text(
-                "Order again",
-                style: Theme.of(context).textTheme.titleSmall,
+              child: Row(
+                children: [
+                  Text(
+                    "Order again",
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  if (_offline) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFEAF4FC),
+                        borderRadius:
+                            BorderRadius.all(Radius.circular(30)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.wifi_off,
+                              size: 12, color: primaryColor),
+                          SizedBox(width: 4),
+                          Text(
+                            "Offline",
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                              color: primaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
             Padding(

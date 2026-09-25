@@ -301,7 +301,8 @@ Route<dynamic> generateRoute(RouteSettings settings) {
       );
     case paymentMethodsScreenRoute:
       return MaterialPageRoute(
-        builder: (context) => const PaymentMethodsScreen(),
+        builder: (context) =>
+            PaymentMethodsScreen(initial: settings.arguments as String?),
       );
     case vendorHomeScreenRoute:
       return MaterialPageRoute(

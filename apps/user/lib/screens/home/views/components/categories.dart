@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../../constants.dart';
+import '../../../../route/route_constants.dart';
 
 // For preview
 class CategoryModel {
@@ -23,12 +24,26 @@ List<CategoryModel> demoCategories = [
   CategoryModel(name: "1L Bottle", svgSrc: "assets/icons/water_bottle.svg"),
   CategoryModel(name: "500ml Bottle", svgSrc: "assets/icons/water_bottle.svg"),
 ];
+
+/// Search query each chip maps to. "All" keeps the empty query
+/// (search shows the full catalog — behavior unchanged).
+String _chipQuery(String name) {
+  if (name == "All") return "";
+  return name;
+}
 // End For Preview
 
-class Categories extends StatelessWidget {
+class Categories extends StatefulWidget {
   const Categories({
     super.key,
   });
+
+  @override
+  State<Categories> createState() => _CategoriesState();
+}
+
+class _CategoriesState extends State<Categories> {
+  int _selected = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -46,10 +61,18 @@ class Categories extends StatelessWidget {
               child: CategoryBtn(
                 category: demoCategories[index].name,
                 svgSrc: demoCategories[index].svgSrc,
-                isActive: index == 0,
+                isActive: index == _selected,
                 press: () {
-                  if (demoCategories[index].route != null) {
-                    Navigator.pushNamed(context, demoCategories[index].route!);
+                  setState(() => _selected = index);
+                  final route = demoCategories[index].route;
+                  if (route != null) {
+                    Navigator.pushNamed(context, route);
+                  } else {
+                    Navigator.pushNamed(
+                      context,
+                      searchScreenRoute,
+                      arguments: _chipQuery(demoCategories[index].name),
+                    );
                   }
                 },
               ),

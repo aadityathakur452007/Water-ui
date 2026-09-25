@@ -1,5 +1,4 @@
 import '../config/app_config.dart';
-import '../models/order_model.dart';
 import '../services/api_client.dart';
 import '../services/session_store.dart';
 
@@ -30,19 +29,17 @@ class Address {
 }
 
 /// Address source. Demo mode serves the bundled default address instantly
-/// (no network attempted); live mode hits the contract endpoints
+/// (no network attempted) and persists created addresses in a static
+/// in-memory store for the session; live mode hits the contract endpoints
 /// `GET /api/addresses` and `POST /api/addresses` (auth required).
 class AddressRepository {
   const AddressRepository();
 
-  List<Address> demo() => [
-        Address(
-          id: 'home',
-          label: defaultAddress.label,
-          line: defaultAddress.line,
-          city: defaultAddress.city,
-        ),
-      ];
+  static final List<Address> _demoStore = [
+    const Address(id: 'home', label: 'Home', line: '123, Example Colony', city: 'Bhopal'),
+  ];
+
+  List<Address> demo() => List<Address>.of(_demoStore);
 
   Future<ApiClient> _client(ApiClient? client) async {
     if (client != null) return client;
@@ -62,6 +59,7 @@ class AddressRepository {
 
   /// `GET /api/addresses` — own addresses, oldest first.
   /// Empty list is valid (genuine-empty → empty state in the UI).
+  /// Demo mode returns the persisted in-memory list (seed + created).
   Future<List<Address>> fetchAddresses({ApiClient? client}) async {
     if (AppConfig.demoMode && client == null) return demo();
     final api = await _client(client);
@@ -77,12 +75,14 @@ class AddressRepository {
     ApiClient? client,
   }) async {
     if (AppConfig.demoMode && client == null) {
-      return Address(
+      final created = Address(
         id: 'local-${DateTime.now().millisecondsSinceEpoch}',
         label: label.trim(),
         line: line.trim(),
         city: city.trim(),
       );
+      _demoStore.add(created);
+      return created;
     }
     final api = await _client(client);
     final body = await api.post('/api/addresses', body: {

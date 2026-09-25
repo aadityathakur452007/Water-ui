@@ -21,7 +21,34 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
   int _index = 0;
   final _service = const VendorService();
 
+  /// Bumped whenever the Dashboard tab is (re)selected: the new key
+  /// recreates [VendorDashboardScreen] so KPIs re-fetch on tab revisit.
+  int _dashNonce = 0;
+
+  void _goTab(int i) => setState(() {
+        _index = i;
+        if (i == 0) _dashNonce++;
+      });
+
   Future<void> _logout() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (d) => AlertDialog(
+        title: const Text('Log out?'),
+        content: const Text('You will need to log in again.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(d).pop(false),
+            child: const Text('Stay'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(d).pop(true),
+            child: const Text('Log out'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
     await const AuthService().logout();
     if (!mounted) return;
     Navigator.pushNamedAndRemoveUntil(
@@ -34,8 +61,10 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final pages = [
-      VendorDashboardScreen(service: _service),
-      VendorOrdersScreen(service: _service),
+      VendorDashboardScreen(
+          key: ValueKey(_dashNonce), service: _service),
+      VendorOrdersScreen(
+          service: _service, onViewDashboard: () => _goTab(0)),
       VendorDeliveriesScreen(service: _service),
     ];
     const titles = ['Dashboard', 'Orders', 'Deliveries'];
@@ -55,7 +84,7 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
         currentIndex: _index,
         selectedItemColor: primaryColor,
         type: BottomNavigationBarType.fixed,
-        onTap: (i) => setState(() => _index = i),
+        onTap: _goTab,
         items: const [
           BottomNavigationBarItem(
               icon: Icon(Icons.dashboard), label: 'Dashboard'),

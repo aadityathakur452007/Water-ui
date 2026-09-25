@@ -3,27 +3,55 @@ import '../screens/vendor/vendor_order.dart';
 import 'api_client.dart';
 import 'session_store.dart';
 
+/// Turns a wire enum (`every_day`) into a display label (`Every day`).
+/// Never surfaces raw wire values in the UI.
+String humanizeFrequency(String raw) {
+  final s = raw.replaceAll('_', ' ').trim();
+  if (s.isEmpty) return s;
+  return s[0].toUpperCase() + s.substring(1);
+}
+
+/// Query for `GET /api/vendor/orders`: 'all'/empty means "no filter"
+/// (the backend has no `all` status — sending `?status=all` returns nothing).
+Map<String, String>? ordersQuery(String? status) =>
+    (status == null || status.isEmpty || status == 'all')
+        ? null
+        : {'status': status};
+
 class VendorSubscription {
+  final String productId;
+  final String productName;
   final int quantity;
   final String frequency;
   final String status;
   final String nextDelivery;
 
   const VendorSubscription({
+    this.productId = '',
+    this.productName = '',
     required this.quantity,
     required this.frequency,
     required this.status,
     required this.nextDelivery,
   });
 
-  factory VendorSubscription.fromJson(Map<String, dynamic> json) =>
-      VendorSubscription(
-        quantity: (json['quantity'] as num? ?? 0).toInt(),
-        frequency: '${json['frequency'] ?? ''}',
-        status: '${json['status'] ?? ''}',
-        nextDelivery:
-            '${json['nextDelivery'] ?? json['next_delivery'] ?? ''}',
-      );
+  factory VendorSubscription.fromJson(Map<String, dynamic> json) {
+    // Live rows nest the product (`product: {id, name}`); user rows use
+    // flat `product_id`/`product_name`. Accept both, never user PII.
+    final product = json['product'];
+    final Map<String, dynamic> p =
+        product is Map<String, dynamic> ? product : const {};
+    return VendorSubscription(
+      productId: '${json['product_id'] ?? json['productId'] ?? p['id'] ?? ''}',
+      productName:
+          '${p['name'] ?? json['product_name'] ?? json['productName'] ?? json['product_id'] ?? ''}',
+      quantity: (json['quantity'] as num? ?? 0).toInt(),
+      frequency: humanizeFrequency('${json['frequency'] ?? ''}'),
+      status: '${json['status'] ?? ''}',
+      nextDelivery:
+          '${json['nextDelivery'] ?? json['next_delivery'] ?? ''}',
+    );
+  }
 }
 
 class VendorKpis {  final int todayDeliveries;
@@ -203,7 +231,7 @@ class VendorService {
     }
     final api = await _client();
     final body = await api.get('/api/vendor/orders',
-        query: status == null ? null : {'status': status});
+        query: ordersQuery(status));
     final list = body is List ? body : (body as Map)['orders'];
     if (list is! List) return const [];
     return list
@@ -218,6 +246,15 @@ class VendorService {
       final i = _demoOrders.indexWhere((o) => o.id == id);
       if (i == -1) throw const AppException('NOT_FOUND', 'Order not found');
       final o = _demoOrders[i];
+      // Mirror the live guard (contract: forward-only, any→cancelled):
+      // illegal jumps are rejected here just like the live 409.
+      final isFinal = o.status == 'delivered' || o.status == 'cancelled';
+      final legal =
+          (status == 'cancelled' && !isFinal) || status == nextStatus(o.status);
+      if (!legal) {
+        throw AppException(
+            'CONFLICT', 'Cannot move order from ${o.status} to $status');
+      }
       _demoOrders[i] = VendorOrder(
         id: o.id,
         items: o.items,
@@ -238,18 +275,24 @@ class VendorService {
 
   static const _demoSubs = [
     VendorSubscription(
+      productId: 'wd-20l',
+      productName: '20L Drinking Water Jar',
       quantity: 2,
       frequency: 'Every Day',
       status: 'active',
       nextDelivery: 'Tomorrow • 8:00 AM',
     ),
     VendorSubscription(
+      productId: 'wd-1l-12',
+      productName: '1L Mineral Water Bottles (12-pack)',
       quantity: 1,
       frequency: 'Alternate Days',
       status: 'active',
       nextDelivery: 'Today • 12:00 PM',
     ),
     VendorSubscription(
+      productId: 'wd-5l',
+      productName: '5L Water Can',
       quantity: 1,
       frequency: 'Once a Week',
       status: 'paused',

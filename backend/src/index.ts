@@ -44,6 +44,8 @@ type Ctx = Context<{ Variables: { user: PublicUser } }>;
 
 const err = (code: string, message: string) => ({ error: { code, message } });
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+// Server owns the flat ₹10 delivery fee (approved: client totals ignored).
+const DELIVERY_FEE = 10;
 
 const toUser = (r: Row): PublicUser => ({ id: r.id, name: r.name, phone: r.phone, email: r.email, role: r.role });
 const toProduct = (r: Row) => ({
@@ -239,6 +241,7 @@ async function createOrder(c: Ctx) {
     total += (p.price as number) * qty;
     lines.push({ product: p, qty });
   }
+  total += DELIVERY_FEE;
   const now = new Date().toISOString();
   const insertAll = db.transaction(() => {
     const r = dbRun(

@@ -33,6 +33,7 @@ class _SignUpFormState extends State<SignUpForm> {
   Widget build(BuildContext context) {
     return Form(
       key: widget.formKey,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
       child: Column(
         children: [
           TextFormField(
@@ -41,6 +42,7 @@ class _SignUpFormState extends State<SignUpForm> {
             textInputAction: TextInputAction.next,
             keyboardType: TextInputType.name,
             decoration: InputDecoration(
+              labelText: "Full name",
               hintText: "Full name",
               prefixIcon: Padding(
                 padding:
@@ -76,6 +78,7 @@ class _SignUpFormState extends State<SignUpForm> {
             textInputAction: TextInputAction.next,
             keyboardType: TextInputType.phone,
             decoration: InputDecoration(
+              labelText: "Phone number",
               hintText: "Phone number",
               prefixIcon: Padding(
                 padding:
@@ -103,6 +106,7 @@ class _SignUpFormState extends State<SignUpForm> {
             textInputAction: TextInputAction.next,
             keyboardType: TextInputType.emailAddress,
             decoration: InputDecoration(
+              labelText: "Email address",
               hintText: "Email address",
               prefixIcon: Padding(
                 padding:
@@ -130,6 +134,7 @@ class _SignUpFormState extends State<SignUpForm> {
             obscureText: _obscure,
             textInputAction: TextInputAction.done,
             decoration: InputDecoration(
+              labelText: "Password",
               hintText: "Password",
               helperText: "8+ characters with a special character",
               prefixIcon: Padding(

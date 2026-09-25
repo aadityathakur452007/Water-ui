@@ -6,7 +6,11 @@ import 'package:shop/route/route_constants.dart';
 /// screen collects a validated email and states the next step
 /// conditionally — it never claims an email was sent.
 class PasswordRecoveryScreen extends StatefulWidget {
-  const PasswordRecoveryScreen({super.key});
+  const PasswordRecoveryScreen({super.key, this.initialEmail});
+
+  /// Pre-filled from the login identifier (ui-checklist: resetting
+  /// password asks for account details, pre-filled when available).
+  final String? initialEmail;
 
   @override
   State<PasswordRecoveryScreen> createState() =>
@@ -17,6 +21,27 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
   final _formKey = GlobalKey<FormState>();
   final _email = TextEditingController();
   bool _sent = false;
+  bool _prefilled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final seed = widget.initialEmail?.trim() ?? '';
+    if (seed.isNotEmpty) _email.text = seed;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Fallback for named-route pushes carrying the identifier.
+    if (!_prefilled && _email.text.isEmpty) {
+      _prefilled = true;
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is String && args.trim().isNotEmpty) {
+        _email.text = args.trim();
+      }
+    }
+  }
 
   @override
   void dispose() {

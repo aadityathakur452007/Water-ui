@@ -37,6 +37,9 @@ class OrdersScreen extends StatefulWidget {
 class _OrdersScreenState extends State<OrdersScreen> {
   final _repo = const OrderRepository();
   Future<({List<Order> ongoing, List<Order> past})>? _future;
+  bool _offline = false;
+  String? _openOrderId;
+  bool _autoOpened = false;
 
   @override
   void initState() {
@@ -44,18 +47,39 @@ class _OrdersScreenState extends State<OrdersScreen> {
     _future = _load();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Order id passed by the checkout success view (pushReplacement).
+    // Read from the route itself so no router change is needed.
+    if (_openOrderId == null) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is String && args.isNotEmpty) {
+        _openOrderId = args;
+      } else if (args is Map && args['orderId'] is String) {
+        _openOrderId = args['orderId'] as String;
+      }
+    }
+  }
+
   Future<({List<Order> ongoing, List<Order> past})> _load() async {
     try {
       final remote = await _repo.fetchOrders();
+      if (mounted) setState(() => _offline = false);
       return _split(remote);
     } on AppException catch (e) {
       if (e.code == 'UNAUTHENTICATED') {
         await const AuthService().handleUnauthorized();
         if (mounted) {
-          Navigator.pushNamed(context, logInScreenRoute);
+          Navigator.pushNamedAndRemoveUntil(
+              context, logInScreenRoute, (_) => false);
         }
         rethrow;
       }
+      // NETWORK-only fallback: other errors rethrow so the Retry
+      // path surfaces them honestly.
+      if (e.code != 'NETWORK') rethrow;
+      if (mounted) setState(() => _offline = true);
       // Backend unreachable: show the bundled demo orders
       // so the screen still demonstrates ongoing vs past.
       return (ongoing: _repo.ongoing(), past: _repo.past());
@@ -76,6 +100,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
     final past = <Order>[];
     for (final o in all) {
       if (o.status == OrderStatus.scheduled ||
+          o.status == OrderStatus.preparing ||
+          o.status == OrderStatus.outForDelivery ||
           o.status == OrderStatus.active) {
         ongoing.add(o);
       } else {
@@ -85,13 +111,70 @@ class _OrdersScreenState extends State<OrdersScreen> {
     return (ongoing: ongoing, past: past);
   }
 
+  /// Auto-opens the detail sheet for the just-placed order (id passed
+  /// by the checkout success view). Runs once, after data arrives.
+  void _maybeAutoOpen(List<Order> all) {
+    if (_autoOpened || _openOrderId == null) return;
+    Order? match;
+    for (final o in all) {
+      if (o.id == _openOrderId) {
+        match = o;
+        break;
+      }
+    }
+    _autoOpened = true;
+    if (match == null || !mounted) return;
+    final order = match;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      customModalBottomSheet(
+        context,
+        title: order.displayLabel,
+        showClose: true,
+        child: _OrderDetailSheet(order: order),
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text("Orders"),
+          title: Row(
+            children: [
+              const Text("Orders"),
+              if (_offline) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 2),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFEAF4FC),
+                    borderRadius:
+                        BorderRadius.all(Radius.circular(30)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.wifi_off,
+                          size: 12, color: primaryColor),
+                      SizedBox(width: 4),
+                      Text(
+                        "Offline",
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: primaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
           bottom: const TabBar(
             tabs: [Tab(text: "ONGOING"), Tab(text: "PAST")],
           ),
@@ -141,6 +224,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
             }
             final data = snap.data ??
                 (ongoing: const <Order>[], past: const <Order>[]);
+            _maybeAutoOpen([...data.ongoing, ...data.past]);
             return TabBarView(
               children: [
                 RefreshIndicator(
@@ -190,7 +274,8 @@ class _OrderListState extends State<_OrderList> {
       if (e.code == 'UNAUTHENTICATED') {
         await const AuthService().handleUnauthorized();
         if (mounted) {
-          Navigator.pushNamed(context, logInScreenRoute);
+          Navigator.pushNamedAndRemoveUntil(
+              context, logInScreenRoute, (_) => false);
         }
         return;
       }
@@ -211,8 +296,19 @@ class _OrderListState extends State<_OrderList> {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(defaultPadding),
-        children: const [
-          Center(child: Text("No orders yet")),
+        children: [
+          const Center(child: Text("No orders yet")),
+          const SizedBox(height: defaultPadding),
+          Center(
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(0, 36),
+              ),
+              onPressed: () => Navigator.pushNamed(
+                  context, discoverScreenRoute),
+              child: const Text("Order water"),
+            ),
+          ),
         ],
       );
     }
@@ -237,11 +333,16 @@ class _OrderListState extends State<_OrderList> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text("#${order.id}",
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleSmall!
-                          .copyWith(fontWeight: FontWeight.w600)),
+                  Expanded(
+                    child: Text(order.displayLabel,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleSmall!
+                            .copyWith(fontWeight: FontWeight.w600)),
+                  ),
+                  const SizedBox(width: 8),
                   _StatusDot(status: order.status),
                 ],
               ),
@@ -270,6 +371,8 @@ class _OrderListState extends State<_OrderList> {
                     OutlinedButton(
                       onPressed: () => customModalBottomSheet(
                         context,
+                        title: order.displayLabel,
+                        showClose: true,
                         child: _OrderDetailSheet(order: order),
                       ),
                       child: const Text("View"),
@@ -294,7 +397,9 @@ class _StatusDot extends StatelessWidget {
   Widget build(BuildContext context) {
     final Color color = status == OrderStatus.delivered ||
             status == OrderStatus.active ||
-            status == OrderStatus.scheduled
+            status == OrderStatus.scheduled ||
+            status == OrderStatus.preparing ||
+            status == OrderStatus.outForDelivery
         ? successColor
         : errorColor;
     return Row(
@@ -330,12 +435,6 @@ class _OrderDetailSheet extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Order #${order.id}",
-              style: Theme.of(context)
-                  .textTheme
-                  .titleSmall!
-                  .copyWith(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
           Text(order.itemsSummary),
           Text("${inr(order.totalAmount)} · ${order.deliverySlot}"),
           const SizedBox(height: defaultPadding),
@@ -364,10 +463,11 @@ class _OrderDetailSheet extends StatelessWidget {
         ),
       ];
     }
-    const steps = ['Ordered', 'Packed', 'Shipped', 'Delivered'];
+    const steps = ['Ordered', 'Preparing', 'Out for delivery', 'Delivered'];
     final doneThrough = switch (order.status) {
       OrderStatus.delivered => 4,
-      OrderStatus.active => 2,
+      OrderStatus.outForDelivery || OrderStatus.active => 3,
+      OrderStatus.preparing => 2,
       _ => 1,
     };
     return [

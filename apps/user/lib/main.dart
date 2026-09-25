@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:shop/route/route_constants.dart';
 import 'package:shop/route/router.dart' as router;
+import 'package:shop/screens/auth/views/login_screen.dart';
+import 'package:shop/screens/onbording/views/onbording_screnn.dart';
+import 'package:shop/services/session_store.dart';
 import 'package:shop/theme/app_theme.dart';
 
 void main() {
@@ -24,7 +26,33 @@ class MyApp extends StatelessWidget {
       themeMode: ThemeMode.light,
       onGenerateRoute: router.generateRoute,
       onUnknownRoute: router.onUnknownRoute,
-      initialRoute: onbordingScreenRoute,
+      home: const _BootGate(),
+    );
+  }
+}
+
+/// Minimal stale-token boot check: no saved token → straight to login;
+/// otherwise the regular onboarding flow. Cheap and honest — it does not
+/// validate the token against the server (a dead token 401s into the
+/// existing auto-logout path on first use).
+class _BootGate extends StatelessWidget {
+  const _BootGate();
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<String?>(
+      future: const SessionStore().readToken(),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (snap.data == null || snap.data!.isEmpty) {
+          return const LoginScreen();
+        }
+        return const OnBordingScreen();
+      },
     );
   }
 }

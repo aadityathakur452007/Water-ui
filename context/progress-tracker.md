@@ -10,6 +10,11 @@ ui-checklist audit across all pages via 4 parallel agents; orphan purge;
 user subscription endpoints; edge hardening (timeouts, 401 logout, cancel,
 pull-refresh). CI green. Next: merge audit line, vendor APK decision.
 
+Subtle-fixes pass (2026-09-25, `feature/water-subtle-fixes` off the audit
+line): 4 file-disjoint agents implemented all 3 approved batches (sync
+honesty, UX gaps, parity/docs) + backend ₹10 fee; orchestrator review,
+gates green, committed after review. Details in Completed below.
+
 Repurposing the FlutterShop template into a water delivery customer app.
 Repo: fresh `git init` in `water-delivery-app` (copy of template, no old history);
 `main` = template snapshot; all work on `feature/water-repurpose`.
@@ -21,6 +26,8 @@ Orders list + 4-tab nav + water-blue theme + ₹ everywhere. Phase 2 (later):
 order-type screen, subscription config/mgmt, account additions, search, notifications.
 
 ## Completed
+
+- **Water subtle fixes (2026-09-25, `feature/water-subtle-fixes`, ADR-021/022/023/024)** — 4 file-disjoint agents, all 3 approved batches, no commits by agents. Purchase: demo order-book (create appends, cancel marks), checkout sends `addressId` with selectable list, NETWORK-only fallbacks + offline chips (never phantom success), stateful home chips → search, discover tap-to-search, success `pushReplacement` + auto-open real order + `displayLabel`, preparing/outForDelivery 1:1 + timeline, empty CTAs, modal title/Close, payment route-result sync, remove-until login, stepper min-states. Account: AuthService-routed signup, login stack/toast/labels, recovery pre-fill, demo-persisted addresses, radio payment pop, profile skeleton/confirm, muted nav, debounced search + count/highlight/sort, wallet empty-branch + `inr()`, persisted prefs/notifs, token-less boot to login. Vendor: `?status=all` omitted, honest refresh + KPI re-fetch, count header + list-owned SnackBar, cancel/logout confirms, deliveries filters + nested-product parser + humanized frequency, demo transition guard, save dirty/loading/toast, onceAWeek round-trip, sample-labeled progress. Backend: server-owned ₹10 fee (live-verified total 165 = 155 + 10), `skip_next` in schema.sql, seed parity. Gates: `flutter analyze --no-pub` zero, `flutter test` 28/28 (3 new suites), `bun run check` clean, live docker lifecycle green. Orchestrator follow-ups: router forwards payment `initial`, ADR-021 collision → 023/024, `fromJson` doc fix. Contract frozen, untouched.
 
 - **Fresh repo + rename (2026-09-24)** — old `.git` dropped (history + origin
   `abuanwar072` gone, as approved). OS lock prevented in-place rename, so the tree

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shop/constants.dart';
 import 'package:shop/models/category_model.dart';
+import 'package:shop/route/route_constants.dart';
 import 'package:shop/screens/search/views/components/search_form.dart';
 
 import 'components/expansion_category.dart';
@@ -15,9 +16,15 @@ class DiscoverScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Padding(
-              padding: EdgeInsets.all(defaultPadding),
-              child: SearchForm(),
+            Padding(
+              padding: const EdgeInsets.all(defaultPadding),
+              child: GestureDetector(
+                onTap: () =>
+                    Navigator.pushNamed(context, searchScreenRoute),
+                child: const AbsorbPointer(
+                  child: SearchForm(isEnabled: false),
+                ),
+              ),
             ),
             Padding(
               padding: const EdgeInsets.symmetric(

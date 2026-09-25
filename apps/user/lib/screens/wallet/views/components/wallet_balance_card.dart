@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../constants.dart';
+import '../../../../models/cart_model.dart' show inr;
 
 class WalletBalanceCard extends StatelessWidget {
   const WalletBalanceCard({
@@ -41,7 +42,7 @@ class WalletBalanceCard extends StatelessWidget {
                   ),
                   const SizedBox(height: defaultPadding / 2),
                   Text(
-                    "₹${balance.toStringAsFixed(2)}",
+                    inr(balance),
                     style: Theme.of(context)
                         .textTheme
                         .headlineSmall!
@@ -54,7 +55,7 @@ class WalletBalanceCard extends StatelessWidget {
           ElevatedButton(
             onPressed: onTabChargeBalance,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF9581FF),
+              backgroundColor: primaryColor,
               shape: const RoundedRectangleBorder(
                 borderRadius: BorderRadius.only(
                   bottomLeft: Radius.circular(defaultBorderRadious),

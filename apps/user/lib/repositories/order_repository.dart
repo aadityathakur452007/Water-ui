@@ -8,45 +8,53 @@ import '../services/session_store.dart';
 /// offline fallback); async methods hit the contract endpoints:
 /// `POST /api/orders`, `GET /api/orders`, `PATCH /api/orders/:id/cancel`.
 /// Statuses here mirror what the backend returns.
+///
+/// Demo mode keeps a small in-memory order-book: [createOrder] appends
+/// the placed order (with its `WD-` counter id and embedded ₹10 fee) to
+/// the demo ongoing list so the Orders tab lists it, and [cancelOrder]
+/// marks it cancelled so the status changes everywhere on the next
+/// `fetchOrders` reload.
 class OrderRepository {
   const OrderRepository();
 
-  List<Order> ongoing() => const [
-        Order(
-          id: "WD-00124",
-          items: [
-            OrderItem(
-              productId: "wd-20l",
-              name: "20L Drinking Water Jar",
-              qty: 2,
-              price: 60,
-            ),
-          ],
-          address: defaultAddress,
-          orderType: OrderType.oneTime,
-          status: OrderStatus.scheduled,
-          totalAmount: 130,
-          deliverySlot: "Tomorrow • 8:00 AM",
-          createdAt: "24 Sept • 7:30 AM",
+  static final List<Order> _demoOngoing = [
+    const Order(
+      id: "WD-00124",
+      items: [
+        OrderItem(
+          productId: "wd-20l",
+          name: "20L Drinking Water Jar",
+          qty: 2,
+          price: 60,
         ),
-        Order(
-          id: "WD-00119",
-          items: [
-            OrderItem(
-              productId: "wd-20l",
-              name: "20L Drinking Water Jar",
-              qty: 2,
-              price: 60,
-            ),
-          ],
-          address: defaultAddress,
-          orderType: OrderType.regular,
-          status: OrderStatus.active,
-          totalAmount: 130,
-          deliverySlot: "Every Day • 8:00 AM",
-          createdAt: "20 Sept • 8:00 AM",
+      ],
+      address: defaultAddress,
+      orderType: OrderType.oneTime,
+      status: OrderStatus.scheduled,
+      totalAmount: 130,
+      deliverySlot: "Tomorrow • 8:00 AM",
+      createdAt: "24 Sept • 7:30 AM",
+    ),
+    const Order(
+      id: "WD-00119",
+      items: [
+        OrderItem(
+          productId: "wd-20l",
+          name: "20L Drinking Water Jar",
+          qty: 2,
+          price: 60,
         ),
-      ];
+      ],
+      address: defaultAddress,
+      orderType: OrderType.regular,
+      status: OrderStatus.active,
+      totalAmount: 130,
+      deliverySlot: "Every Day • 8:00 AM",
+      createdAt: "20 Sept • 8:00 AM",
+    ),
+  ];
+
+  List<Order> ongoing() => List<Order>.unmodifiable(_demoOngoing);
 
   List<Order> past() => const [
         Order(
@@ -92,14 +100,15 @@ class OrderRepository {
 
   static int _counter = 125;
 
-  /// Places an order locally; returns the confirmed order.
+  /// Places an order locally; returns the confirmed order and records
+  /// it in the demo ongoing list (₹10 fee embedded in [total]).
   Order placeOrder({
     required List<OrderItem> items,
     required double total,
     required OrderType orderType,
     required String deliverySlot,
   }) {
-    return Order(
+    final order = Order(
       id: "WD-${_counter++}",
       items: items,
       address: defaultAddress,
@@ -109,6 +118,8 @@ class OrderRepository {
       deliverySlot: deliverySlot,
       createdAt: "Today",
     );
+    _demoOngoing.insert(0, order);
+    return order;
   }
 
   Future<ApiClient> _client(ApiClient? client) async {
@@ -174,9 +185,17 @@ class OrderRepository {
   }
 
   /// `PATCH /api/orders/:id/cancel` — own + only when `scheduled`.
-  /// Demo mode is a no-op (seed list is static).
+  /// Demo mode marks the booked order cancelled so the next
+  /// `fetchOrders` shows the new status (orders screen reloads).
   Future<void> cancelOrder(String id, {ApiClient? client}) async {
-    if (AppConfig.demoMode && client == null) return;
+    if (AppConfig.demoMode && client == null) {
+      final index = _demoOngoing.indexWhere((o) => o.id == id);
+      if (index != -1) {
+        _demoOngoing[index] =
+            _demoOngoing[index].copyWith(status: OrderStatus.cancelled);
+      }
+      return;
+    }
     final api = await _client(client);
     await api.patch('/api/orders/$id/cancel');
   }

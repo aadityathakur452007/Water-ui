@@ -68,5 +68,6 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   start_date TEXT NOT NULL,
   delivery_time TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'active',
-  next_delivery TEXT
+  next_delivery TEXT,
+  skip_next INTEGER NOT NULL DEFAULT 0
 );

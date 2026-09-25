@@ -35,6 +35,10 @@
 
 | ID | Date | Decision | Status | Affects |
 |----|------|----------|--------|---------|
+| ADR-021 | 2026-09-25 | Purchase-flow honesty fixes: demo order-book, addressId checkout, NETWORK-only fallbacks, status granularity, displayLabel | Accepted | apps/user (commerce scope), test/purchase_fixes_test.dart |
+| ADR-022 | 2026-09-25 | Account subtle fixes: AuthService-routed signup, demo-persisted addresses, radio payment pop, debounced search, prefs persistence | Accepted | apps/user account surfaces, address repo, test/ |
+| ADR-023 | 2026-09-25 | Vendor subtle fixes: all-omitted query, demo transition guard, onceAWeek wire, honest empty/sample labels | Accepted | apps/user vendor screens, subscription model/repo, test/ |
+| ADR-024 | 2026-09-25 | Server owns flat ₹10 delivery fee; skip_next declared in schema.sql; seed/display parity | Accepted | backend/src/index.ts, backend/schema.sql, backend/seed.ts |
 | ADR-020 | 2026-09-25 | UI-checklist audit via 4 agents: orphan purge, real subscription endpoints, edge hardening | Accepted | apps/user, backend, CI |
 | ADR-019 | 2026-09-25 | Unified role-based app; demo seed mode; vendor line merged, apps/vendor retired | Accepted | apps/user, branches |
 | ADR-018 | 2026-09-24 | Fullstack: Bun+Hono+SQLite(D1-ready), vendor app, flutter_ui_collection, server-side PII strip | Accepted | backend/, apps/, CI |
@@ -75,9 +79,46 @@
 
 ## Decision Entries
 
+### ADR-021: Purchase-flow honesty fixes (commerce scope)
+- **Date**: 2026-09-25
+- **Status**: Accepted
+- **Context**: Audit found demo orders never listing placed orders, checkout omitting the contract-required address, fake success on offline failure, collapsed vendor statuses, and dead/minor UI gaps.
+- **Options considered**: Router change to pass order id (rejected — OrdersScreen reads `ModalRoute` args itself, zero router churn); shared OfflineChip widget (rejected — per-file private chips keep the diff minimal and avoid touching shared components); disabling cart minus at qty 1 (rejected — it removes the line, the only removal path; clamping steppers got the disabled state instead).
+- **Decision**: In-memory demo order-book with `copyWith(status:)` cancel; checkout address RadioList + `addressId|address` fallback + inline not-sent state (never success on NETWORK); NETWORK-only fallbacks with offline chips and error-cards-with-retry (hide only on genuine empty); `preparing`/`outForDelivery` 1:1 + 4-step timeline; `displayLabel`; success `pushReplacement` + auto-open sheet; modal opt-in title/Close; payment route-result sync (null-safe); `pushNamedAndRemoveUntil(login)`; stepper disabled-at-min where clamping; bookmark removal; related pre-filter. `test/purchase_fixes_test.dart` (5 tests).
+- **Why**: Every fix lands at the root (repo/model) so all callers inherit it; UI stays honest about unsent/failed states per impeccable-harden; file ownership respected (router, address_repository, payment screen untouched).
+- **Consequences**: Demo `_demoOngoing` is static in-memory (resets on restart — acceptable for demo); payment sync depends on Agent B's methods-screen popping a String result (null-safe until then).
+- **Affects**: `apps/user/{models/order_model, repositories/order_repository, components/custom_modal_bottom_sheet, screens/{home,discover,product,order_type,checkout,order}}`, `test/purchase_fixes_test.dart`
+
+### ADR-022: Account subtle fixes (13 approved items, minimal diffs)
+- **Date**: 2026-09-25
+- **Status**: Accepted
+- **Context**: Approved fix list on `feature/water-subtle-fixes` (file-disjoint from Agent A who owns cart/checkout): demo signup bypassed AuthService, login kept Login in the back stack, Terms linked to an unregistered route, demo addresses vanished after create, payment selection could not sync to checkout, search lost caret + fired per keystroke, prefs/toggles were memory-only, wallet money bypassed `inr()`.
+- **Decision**: Signup routes through `AuthService.register` (demo/live + session save); login/signup clear stale errors on retype, `autovalidateMode.onUserInteraction`, `labelText` + hints, dismissible error SnackBar + inline text, `pushNamedAndRemoveUntil(_, (_) => false)`; Terms link de-linked to plain text (route unregistered — checked router first); recovery pre-fills via `initialEmail` direct-push (no router-contract change); `AddressRepository` static demo store (seed + created, copy-out; live path untouched); payment screen is `RadioGroup` + pops `cod|upi`; profile gets skeleton, dead Location/FAQ tiles removed, icon SnackBars, logout confirm + "Logged out" toast; entry `unselectedItemColor` muted; search owns a controller + 300ms debounce, "N results" count, RichText highlight rows (grid-to-list: shared `ProductCard` takes plain-String title and is read-only), sort bottom sheet on filter icon; user_info drops `role`; wallet branches to `EmptyWalletScreen`, `inr()` everywhere, button to `primaryColor`; prefs + notif toggles persist via shared_preferences (verified in pubspec — no new deps); DotsV becomes settings shortcut to options; `_BootGate` routes token-less boot to login.
+- **Why**: Root-cause, minimal-diff fixes per ponytail + ui-checklist (labels, result counts, highlight, dismissible toasts, pre-filled recovery, radio grouping, confirm modal); contract frozen so no backend/router-shape changes — checkout/cart side stays Agent A's via the documented pop contract.
+- **Consequences**: `flutter analyze --no-pub` zero; `flutter test` green incl. new `test/account_fixes_test.dart` (12 tests). Notif list + wallet history remain local seed (no backend endpoint — noted honestly in code).
+- **Affects**: `apps/user/lib/screens/{auth,profile,address,payment,wallet,preferences,notification,search,user_info}`, `services/auth_service.dart` (used, not changed), `repositories/address_repository.dart`, `entry_point.dart`, `main.dart`, `test/account_fixes_test.dart`
+
+### ADR-023: Vendor subtle fixes (10 approved items, minimal diffs)
+- **Date**: 2026-09-25
+- **Status**: Accepted
+- **Context**: Vendor surfaces had a live blocker (`?status=all` returns nothing), dishonest/unclear empty states, a popped-context SnackBar, demo accepting illegal status jumps the live API 409s, `once_a_week` silently rewritten to `weekly`, and a stale "no subscription endpoints" comment.
+- **Decision**: `ordersQuery()` helper (all/empty→null) shared by live fetch; demo `updateStatus` mirrors live guard (forward-only, cancel from non-final, else CONFLICT); `Frequency.onceAWeek` added with `once_a_week` round-trip, `weekly` relabeled "Weekly" so dropdown labels stay distinct; `VendorSubscription` parses nested `product:{id,name}` + humanizes frequency; SnackBar ownership moved to orders list (detail pops status string); dashboard pull-refresh awaits the real future + KPI re-fetch on tab revisit via key bump; progress card labeled "Delivery summary / Sample figures" (history can't be derived from the sub list); save gets dirty/disabled + loading + toast.
+- **Why**: Root-cause fixes at the narrowest choke point (query builder, demo guard, parser); no new deps, water-blue/white, `inr()` for ₹, existing components reused. `weekly`→"Weekly" relabel was required to avoid two identical dropdown entries.
+- **Consequences**: `flutter test` green incl. new `test/vendor_fixes_test.dart`; final `flutter analyze --no-pub` zero repo-wide (orchestrator-verified). `subscription_model.dart` doc comment still says no user endpoints — left stale per file scope (repository comment fixed).
+- **Affects**: `apps/user/lib/screens/vendor/`, `subscriptions_screen.dart`, `subscription_repository.dart`, `subscription_model.dart`, `services/vendor_service.dart`, `test/vendor_fixes_test.dart`
+
 <!-- Newest decisions go at the top of this section. Keep this section growing — it is
      the living memory of the project. Delete the two example entries below once you
      have real decisions. -->
+
+### ADR-024: Server-owned ₹10 delivery fee; skip_next in schema.sql; seed parity
+- **Date**: 2026-09-25
+- **Status**: Accepted
+- **Context**: Order totals omitted the spec'd ₹10 delivery fee (client computed items-only); `skip_next` existed only via runtime migration so fresh schema ≠ runtime schema; seed names/capacities drifted cosmetically from Flutter demo (`·`/`×`).
+- **Decision**: `createOrder` adds flat `DELIVERY_FEE = 10` to the server-computed total (response shape unchanged; stored total flows to list/cancel/vendor/KPIs automatically). `schema.sql` declares `skip_next INTEGER NOT NULL DEFAULT 0`; runtime migration kept as harmless no-op. Seed names/capacities aligned to Flutter demo strings; prices/ids already matched (no change). Backend README already documented `INTERNAL`, so no doc edit. No new endpoints, no contract edit, no Flutter changes, no dependencies.
+- **Why**: Server owns money math (client totals already ignored); declaring the column makes fresh DBs match existing ones; cosmetic seed alignment is zero-risk (seed-if-empty only).
+- **Consequences**: Every new order total = items + 10 (verified live: 155 → 165). Existing orders keep their stored totals.
+- **Affects**: `backend/src/index.ts`, `backend/schema.sql`, `backend/seed.ts`
 
 ### ADR-020: Audit-driven purge + real-data completion (4 parallel agents)
 - **Date**: 2026-09-25

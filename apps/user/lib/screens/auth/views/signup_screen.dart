@@ -1,9 +1,8 @@
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:shop/screens/auth/views/components/sign_up_form.dart';
 import 'package:shop/route/route_constants.dart';
 import 'package:shop/services/api_client.dart';
-import 'package:shop/services/session_store.dart';
+import 'package:shop/services/auth_service.dart';
 
 import '../../../constants.dart';
 
@@ -25,6 +24,18 @@ class _SignUpScreenState extends State<SignUpScreen> {
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    // Clear a stale submit error as soon as the user retypes (ui-checklist:
+    // error returns to default state upon reattempt).
+    for (final c in [_name, _phone, _email, _password]) {
+      c.addListener(() {
+        if (_error != null && mounted) setState(() => _error = null);
+      });
+    }
+  }
+
+  @override
   void dispose() {
     _name.dispose();
     _phone.dispose();
@@ -44,20 +55,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
       _error = null;
     });
     try {
-      final api = ApiClient();
-      final res = await api.post('/api/auth/register', body: {
-        'name': _name.text.trim(),
-        'phone': _phone.text.trim(),
-        'email': _email.text.trim(),
-        'password': _password.text,
-      });
-      final map = Map<String, dynamic>.from(res as Map);
-      final token = map['token']?.toString() ?? '';
-      final user = map['user'] is Map
-          ? Map<String, dynamic>.from(map['user'] as Map)
-          : <String, dynamic>{};
-      if (token.isEmpty) throw const AppException('UNKNOWN', 'No token');
-      await const SessionStore().saveSession(token: token, user: user);
+      await const AuthService().register(
+        name: _name.text,
+        phone: _phone.text,
+        email: _email.text,
+        password: _password.text,
+      );
       if (!mounted) return;
       Navigator.pushNamedAndRemoveUntil(
         context,
@@ -114,24 +117,22 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         onChanged: (value) =>
                             setState(() => _agreed = value ?? false),
                       ),
-                      Expanded(
+                      const Expanded(
+                        // Terms route is not registered in the router, so
+                        // this is plain text (no dead link) until the
+                        // screen ships.
                         child: Text.rich(
                           TextSpan(
                             text: "I agree with the",
                             children: [
                               TextSpan(
-                                recognizer: TapGestureRecognizer()
-                                  ..onTap = () {
-                                    Navigator.pushNamed(
-                                        context, termsOfServicesScreenRoute);
-                                  },
                                 text: " Terms of service ",
-                                style: const TextStyle(
+                                style: TextStyle(
                                   color: primaryColor,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),
-                              const TextSpan(
+                              TextSpan(
                                 text: "& privacy policy.",
                               ),
                             ],

@@ -6,12 +6,9 @@ import '../services/session_store.dart';
 /// Subscription source for the Home "active delivery" card and
 /// subscription management.
 ///
-/// NOTE: the frozen contract + backend ship NO user-facing subscription
-/// endpoints (only `GET /api/vendor/subscriptions`, role=vendor, PII
-/// stripped). So this repository stays local-only on purpose — no
-/// speculative endpoints are invented. [fetchSubscriptions] returns the
-/// local list through the same async shape the UI uses, so adopting a
-/// future `GET /api/subscriptions` is a one-body change.
+/// NOTE: the backend DOES ship user subscription endpoints
+/// (`GET`/`POST`/`PATCH /api/subscriptions` — backend/src/index.ts:449-451),
+/// so live mode talks HTTP; demo mode serves the bundled list (no network).
 class SubscriptionRepository {
   const SubscriptionRepository();
 
