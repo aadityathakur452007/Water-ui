@@ -20,21 +20,6 @@ const _freqLabels = {
   Frequency.onceAWeek: "Once a Week",
 };
 
-/// Water-blue tokens scoped ONLY to the library stat/progress widgets.
-UiThemeData _waterUiTheme() {
-  final base = MinimalTheme.light;
-  return base.copyWith(
-    colorScheme: base.colorScheme.copyWith(
-      primary: primaryColor,
-      success: successColor,
-      error: errorColor,
-    ),
-    useGlow: false,
-    useGradients: false,
-    useShadows: false,
-  );
-}
-
 /// My Regular Deliveries: progress summary + per-subscription
 /// pause / skip / modify. Local data over the repository
 /// (no user-facing subscription endpoint in the frozen contract).
@@ -423,29 +408,27 @@ class _ProgressCard extends StatelessWidget {
           Text("Sample figures",
               style: Theme.of(context).textTheme.bodySmall),
           const SizedBox(height: 8),
-          // Library stat + progress displays (water-blue tokens above).
-          UiTheme(
-            data: _waterUiTheme(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    UiStat(
-                        label: "Delivered",
-                        value: "${progress.delivered}"),
-                    UiStat(
-                        label: "Scheduled",
-                        value: "${progress.scheduled}"),
-                    UiStat(
-                        label: "Skipped", value: "${progress.skipped}"),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                UiProgressBar(value: done, showLabel: true),
-              ],
-            ),
+          // Library stat + progress displays (water-blue UiTheme comes
+          // from the root in main.dart).
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  UiStat(
+                      label: "Delivered",
+                      value: "${progress.delivered}"),
+                  UiStat(
+                      label: "Scheduled",
+                      value: "${progress.scheduled}"),
+                  UiStat(
+                      label: "Skipped", value: "${progress.skipped}"),
+                ],
+              ),
+              const SizedBox(height: 8),
+              UiProgressBar(value: done, showLabel: true),
+            ],
           ),
           const SizedBox(height: 8),
           Text(

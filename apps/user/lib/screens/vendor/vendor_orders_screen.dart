@@ -10,8 +10,8 @@ import 'vendor_order_detail_screen.dart';
 /// Orders list with status filter chips (ui-checklist Tabs pattern:
 /// concise labels, clear active/inactive style).
 ///
-/// PII RULE: each row shows ONLY address + items/qty + amount + slot.
-/// Never renders user name/phone/email (the model has no such fields).
+/// Customer identity (name/phone/email from the approved nested `customer`
+/// block) renders above the address; rows without it show address only.
 class VendorOrdersScreen extends StatefulWidget {
   const VendorOrdersScreen(
       {super.key, required this.service, this.onViewDashboard});
@@ -192,6 +192,11 @@ class _VendorOrdersScreenState extends State<VendorOrdersScreen> {
                     final itemsLabel = o.items
                         .map((e) => '${e.name} \u00D7${e.qty}')
                         .join(', ');
+                    final customerParts = [
+                      if (o.customerName.isNotEmpty) o.customerName,
+                      if (o.customerPhone.isNotEmpty) o.customerPhone,
+                      if (o.customerEmail.isNotEmpty) o.customerEmail,
+                    ];
                     return Card(
                       child: ListTile(
                         title: Text(
@@ -199,7 +204,7 @@ class _VendorOrdersScreenState extends State<VendorOrdersScreen> {
                             style: const TextStyle(
                                 fontWeight: FontWeight.w600)),
                         subtitle: Text(
-                          '${o.addressLine}, ${o.addressCity}\n$itemsLabel\nSlot: ${o.slot} \u00B7 ${o.status.replaceAll('_', ' ')}',
+                          '${customerParts.isNotEmpty ? '${customerParts.join(' \u00B7 ')}\n' : ''}${o.addressLine}, ${o.addressCity}\n$itemsLabel\nSlot: ${o.slot} \u00B7 ${o.status.replaceAll('_', ' ')}',
                         ),
                         isThreeLine: true,
                         trailing: const Icon(Icons.chevron_right),

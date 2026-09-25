@@ -1,4 +1,6 @@
 import '../config/app_config.dart';
+import '../config/demo_seed.dart';
+import '../config/demo_store.dart';
 import '../models/subscription_model.dart';
 import '../services/api_client.dart';
 import '../services/session_store.dart';
@@ -8,35 +10,35 @@ import '../services/session_store.dart';
 ///
 /// NOTE: the backend DOES ship user subscription endpoints
 /// (`GET`/`POST`/`PATCH /api/subscriptions` — backend/src/index.ts:449-451),
-/// so live mode talks HTTP; demo mode serves the bundled list (no network).
+/// so live mode talks HTTP; demo mode serves the shared [DemoStore] list
+/// (seeded from demo_seed, no network).
 class SubscriptionRepository {
   const SubscriptionRepository();
 
-  Subscription? activeDelivery() => const Subscription(
-        id: "SUB-042",
-        productId: "wd-20l",
-        productName: "20L Drinking Water Jar",
-        quantity: 2,
-        frequency: Frequency.everyDay,
-        startDate: "25 September 2026",
-        deliveryTime: "8:00 AM",
-        status: SubscriptionStatus.active,
-        nextDelivery: "Tomorrow • 8:00 AM",
-      );
+  List<Subscription> _demoSubs() => DemoStore.userSubscriptions
+      .map((e) => Subscription.fromJson(Map<String, dynamic>.from(e)))
+      .toList();
 
-  List<Subscription> subscriptions() => [
-        if (activeDelivery() != null) activeDelivery()!,
-      ];
+  Subscription? activeDelivery() {
+    final subs = _demoSubs();
+    for (final s in subs) {
+      if (s.status == SubscriptionStatus.active) return s;
+    }
+    return subs.isEmpty ? null : subs.first;
+  }
 
-  DeliveryProgress septemberProgress() => const DeliveryProgress(
-        delivered: 18,
-        scheduled: 10,
-        skipped: 2,
-        amountPaid: 1080,
+  List<Subscription> subscriptions() => _demoSubs();
+
+  DeliveryProgress septemberProgress() => DeliveryProgress(
+        delivered: (demoDeliveryProgress['delivered'] as num).toInt(),
+        scheduled: (demoDeliveryProgress['scheduled'] as num).toInt(),
+        skipped: (demoDeliveryProgress['skipped'] as num).toInt(),
+        amountPaid:
+            (demoDeliveryProgress['amountPaid'] as num).toDouble(),
       );
 
   /// Async accessor matching the UI's loading/error/empty pattern.
-  /// Demo mode serves the bundled list (no network); live mode reads
+  /// Demo mode serves the shared list (no network); live mode reads
   /// `GET /api/subscriptions` (own rows, empty list is valid).
   Future<List<Subscription>> fetchSubscriptions({ApiClient? client}) async {
     if (AppConfig.demoMode && client == null) return subscriptions();

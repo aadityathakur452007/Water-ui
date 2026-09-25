@@ -45,7 +45,7 @@ Registering via `POST /api/auth/register` always creates role `user`
 | POST | `/api/orders` | user | `{items:[{productId,qty}], addressId\|address, type, slot}` → 201, status `scheduled` |
 | GET | `/api/orders` | user | own orders, newest first |
 | PATCH | `/api/orders/:id/cancel` | user | own order, only when `scheduled` |
-| GET | `/api/vendor/orders?status=` | vendor | stripped list (no user PII) |
+| GET | `/api/vendor/orders?status=` | vendor | list rows, each with nested `customer: {name,phone,email}` (null-safe) |
 | PATCH | `/api/vendor/orders/:id` | vendor | `{status}`: `scheduled→preparing→out_for_delivery→delivered`, any→`cancelled` |
 | GET | `/api/vendor/kpis` | vendor | `{todayDeliveries, todayRevenue, activeSubscriptions, pendingOrders}` |
 | GET | `/api/vendor/subscriptions` | vendor | stripped (no user PII) |
@@ -61,11 +61,14 @@ bun install
 bun run check   # tsc --noEmit
 ```
 
-## D1 migration notes (Cloudflare later)
+## D1 migration notes (Cloudflare Workers — see docs/cloudflare-workers.md)
 
-- `schema.sql` executes unchanged on D1 (plain SQLite, `IF NOT EXISTS`,
-  no Bun-specific syntax).
-- Only the client changes: swap the `bun:sqlite` `Database` for the D1
-  binding; all queries are parameterized `?` SQL that D1 accepts.
-- Auth swaps to Firebase/Clerk (drop the `sessions` table); the Hono app
-  deploys to Workers as-is.
+- `schema.sql` is the source of truth; `migrations/0001_schema.sql` mirrors
+  it without the `PRAGMA` line for `wrangler d1 execute --file`.
+- Only the adapter changes: `src/index.ts` (Bun + `bun:sqlite`) vs
+  `src/worker.ts` (workerd + `env.DB` D1 binding); routes live once in
+  `src/app.ts`. All queries are parameterized `?` SQL that D1 accepts.
+- Auth stays Bearer hex tokens in `sessions` DB rows on both runtimes
+  (no secrets to configure). Passwords: argon2id on Bun, WebCrypto
+  PBKDF2-SHA256 on Workers — each env seeds its own vendor row
+  (`seed.ts` locally, `seed.d1.sql` for D1).

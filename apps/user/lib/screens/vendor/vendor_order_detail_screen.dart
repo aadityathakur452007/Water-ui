@@ -116,6 +116,17 @@ class _VendorOrderDetailScreenState
                   const SizedBox(height: 4),
                   Text(
                       'Type: ${_display(_order.type)} \u00B7 Slot: ${_order.slot}'),
+                  if (_order.hasCustomer) ...[
+                    const SizedBox(height: 8),
+                    const Text('Customer',
+                        style: TextStyle(fontWeight: FontWeight.w600)),
+                    if (_order.customerName.isNotEmpty)
+                      Text(_order.customerName),
+                    if (_order.customerPhone.isNotEmpty)
+                      Text(_order.customerPhone),
+                    if (_order.customerEmail.isNotEmpty)
+                      Text(_order.customerEmail),
+                  ],
                   const SizedBox(height: 8),
                   const Text('Deliver to',
                       style: TextStyle(fontWeight: FontWeight.w600)),

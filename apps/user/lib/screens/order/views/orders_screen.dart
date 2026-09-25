@@ -10,23 +10,6 @@ import 'package:shop/route/route_constants.dart';
 import 'package:shop/services/api_client.dart';
 import 'package:shop/services/auth_service.dart';
 
-/// Water-blue tokens scoped ONLY to the library timeline widget.
-/// The app keeps its Material theme; this wrapper just satisfies
-/// `UiTheme.of` with flat, glow-free, gradient-free values.
-UiThemeData _waterUiTheme() {
-  final base = MinimalTheme.light;
-  return base.copyWith(
-    colorScheme: base.colorScheme.copyWith(
-      primary: primaryColor,
-      success: successColor,
-      error: errorColor,
-    ),
-    useGlow: false,
-    useGradients: false,
-    useShadows: false,
-  );
-}
-
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
 
@@ -438,12 +421,10 @@ class _OrderDetailSheet extends StatelessWidget {
           Text(order.itemsSummary),
           Text("${inr(order.totalAmount)} · ${order.deliverySlot}"),
           const SizedBox(height: defaultPadding),
-          // Library timeline (water-blue tokens above) — replaces the
-          // bespoke dot-row so tracking stays consistent.
-          UiTheme(
-            data: _waterUiTheme(),
-            child: UiTimeline(items: _timelineItems(order)),
-          ),
+          // Library timeline (water-blue UiTheme comes from the root in
+          // main.dart) — replaces the bespoke dot-row so tracking stays
+          // consistent.
+          UiTimeline(items: _timelineItems(order)),
           const SizedBox(height: defaultPadding),
         ],
       ),

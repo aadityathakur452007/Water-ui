@@ -184,19 +184,29 @@ USER APP (real API; mocks kept as offline fallback)
 Home → ApiClient → Hono → SQLite → order/tracking reflects vendor updates
 Auth: login/signup → sessions → Bearer token (shared_preferences)
 
-VENDOR APP (merged into unified app 2026-09-25 — see below; PII stripped by server)
+VENDOR APP (merged into unified app 2026-09-25 — see below; vendors see customer name/phone/email + address + items per 2026-09-25 amendment, never password_hash/role/sessions)
 Login (role gate) → Dashboard (KPIs, re-fetch on tab revisit + pull-refresh
-  awaits real future) → Orders (filter chips; 'all' sends NO status query via
-  ordersQuery(); count header; detail pops status string → list shows SnackBar;
+  awaits real future; UiKpiRow/UiBarChart need the app-wide UiTheme ancestor —
+  main.dart wraps MaterialApp once with shared waterUiThemeData()) → Orders (filter chips; 'all' sends NO status query via
+  ordersQuery(); count header; customer card name·phone·email above address;
+  detail pops status string → list shows SnackBar;
   cancel requires confirm dialog) → advance status (demo mirrors live guard:
   forward-only, cancel from non-final, else CONFLICT) → user app sees new
   status on refresh
+Demo data: single config/demo_seed.dart + shared DemoStore — user and vendor
+  repos read/write the same order/address/subscription lists, so demo user
+  place → vendor sees → vendor advance → user reflects (mirrors live DB).
 Deliveries (All/Active/Paused chips; nested product{id,name} parsed, frequency
   humanized; empty = "No subscriptions yet.") → read-only
 Subscriptions mgmt (user): modify sheet has dirty/disabled Save + loading +
   success toast; progress card labeled sample; repo targets real
   GET/POST/PATCH /api/subscriptions in live mode
-Backend: docker compose up → :3000 (10.0.2.2:3000 from Android emulator)
+Backend: docker compose up → :3000 (10.0.2.2:3000 from Android emulator).
+  Same routes also run on Cloudflare Workers: src/app.ts (portable Hono,
+  no bun:sqlite import) + src/index.ts (Bun adapter) + src/worker.ts
+  (D1 adapter via env.DB); wrangler.toml + migrations/0001_schema.sql +
+  seed.d1.sql; guide docs/cloudflare-workers.md. Vendor order payloads
+  carry nested customer{name,phone,email} via LEFT JOIN users.
 
 ### Unified auth + roles (2026-09-25, ADR-019)
 ```

@@ -1,4 +1,5 @@
 import '../config/app_config.dart';
+import '../config/demo_store.dart';
 import '../models/cart_model.dart';
 import '../models/order_model.dart';
 import '../services/api_client.dart';
@@ -9,117 +10,101 @@ import '../services/session_store.dart';
 /// `POST /api/orders`, `GET /api/orders`, `PATCH /api/orders/:id/cancel`.
 /// Statuses here mirror what the backend returns.
 ///
-/// Demo mode keeps a small in-memory order-book: [createOrder] appends
-/// the placed order (with its `WD-` counter id and embedded ₹10 fee) to
-/// the demo ongoing list so the Orders tab lists it, and [cancelOrder]
-/// marks it cancelled so the status changes everywhere on the next
-/// `fetchOrders` reload.
+/// Demo mode reads/writes the shared [DemoStore] order list (the same list
+/// the vendor service uses), so a user-placed order appears in the vendor
+/// fetch and a vendor status advance reflects here after refresh.
+/// [createOrder] appends with its `WD-` counter id and embedded ₹10 fee;
+/// [cancelOrder] marks it cancelled.
 class OrderRepository {
   const OrderRepository();
 
-  static final List<Order> _demoOngoing = [
-    const Order(
-      id: "WD-00124",
-      items: [
-        OrderItem(
-          productId: "wd-20l",
-          name: "20L Drinking Water Jar",
-          qty: 2,
-          price: 60,
-        ),
-      ],
-      address: defaultAddress,
-      orderType: OrderType.oneTime,
-      status: OrderStatus.scheduled,
-      totalAmount: 130,
-      deliverySlot: "Tomorrow • 8:00 AM",
-      createdAt: "24 Sept • 7:30 AM",
-    ),
-    const Order(
-      id: "WD-00119",
-      items: [
-        OrderItem(
-          productId: "wd-20l",
-          name: "20L Drinking Water Jar",
-          qty: 2,
-          price: 60,
-        ),
-      ],
-      address: defaultAddress,
-      orderType: OrderType.regular,
-      status: OrderStatus.active,
-      totalAmount: 130,
-      deliverySlot: "Every Day • 8:00 AM",
-      createdAt: "20 Sept • 8:00 AM",
-    ),
-  ];
+  static List<Order> _demoAll() => DemoStore.orders
+      .map((e) => Order.fromJson(Map<String, dynamic>.from(e)))
+      .toList();
 
-  List<Order> ongoing() => List<Order>.unmodifiable(_demoOngoing);
+  static bool _isOngoingStatus(OrderStatus s) =>
+      s == OrderStatus.scheduled ||
+      s == OrderStatus.preparing ||
+      s == OrderStatus.outForDelivery ||
+      s == OrderStatus.active;
 
-  List<Order> past() => const [
-        Order(
-          id: "WD-00110",
-          items: [
-            OrderItem(
-              productId: "wd-10l",
-              name: "10L Drinking Water Can",
-              qty: 1,
-              price: 40,
-            ),
-          ],
-          address: defaultAddress,
-          orderType: OrderType.oneTime,
-          status: OrderStatus.delivered,
-          totalAmount: 50,
-          deliverySlot: "18 Sept • 8:00 AM",
-          createdAt: "17 Sept • 6:10 PM",
-        ),
-        Order(
-          id: "WD-00098",
-          items: [
-            OrderItem(
-              productId: "wd-1l-12",
-              name: "1L Bottles · Pack of 12",
-              qty: 1,
-              price: 120,
-            ),
-          ],
-          address: defaultAddress,
-          orderType: OrderType.oneTime,
-          status: OrderStatus.cancelled,
-          totalAmount: 130,
-          deliverySlot: "10 Sept • 8:00 AM",
-          createdAt: "9 Sept • 9:40 AM",
-        ),
-      ];
+  List<Order> ongoing() =>
+      _demoAll().where((o) => _isOngoingStatus(o.status)).toList();
+
+  List<Order> past() =>
+      _demoAll().where((o) => !_isOngoingStatus(o.status)).toList();
 
   Order? lastOrder() {
     final list = ongoing();
     return list.isEmpty ? null : list.first;
   }
 
-  static int _counter = 125;
-
   /// Places an order locally; returns the confirmed order and records
-  /// it in the demo ongoing list (₹10 fee embedded in [total]).
+  /// it in the shared demo store (₹10 fee embedded in [total]).
+  /// Address falls back to [defaultAddress] when neither [addressId] nor
+  /// [address] resolves (same fallback as before).
   Order placeOrder({
     required List<OrderItem> items,
     required double total,
     required OrderType orderType,
     required String deliverySlot,
+    String? addressId,
+    Map<String, String>? address,
   }) {
-    final order = Order(
-      id: "WD-${_counter++}",
-      items: items,
-      address: defaultAddress,
-      orderType: orderType,
-      status: OrderStatus.scheduled,
-      totalAmount: total,
-      deliverySlot: deliverySlot,
-      createdAt: "Today",
-    );
-    _demoOngoing.insert(0, order);
-    return order;
+    final id = 'WD-${DemoStore.nextOrderNumber()}';
+    final resolved = _resolveAddress(addressId, address);
+    final map = <String, dynamic>{
+      'id': id,
+      'type': orderType == OrderType.regular ? 'regular' : 'one-time',
+      'status': 'scheduled',
+      'total': total,
+      'slot': deliverySlot,
+      'created_at': 'Today',
+      'items': [
+        for (final e in items)
+          {
+            'productId': e.productId,
+            'name': e.name,
+            'qty': e.qty,
+            'price': e.price,
+          },
+      ],
+      'address': {
+        'label': resolved.label,
+        'line': resolved.line,
+        'city': resolved.city,
+      },
+      'customer': {
+        'name': 'Demo User',
+        'phone': '9000000001',
+        'email': 'user@demo.local',
+      },
+    };
+    DemoStore.orders.insert(0, map);
+    return Order.fromJson(Map<String, dynamic>.from(map));
+  }
+
+  static DeliveryAddress _resolveAddress(
+      String? addressId, Map<String, String>? address) {
+    if (address != null) {
+      return DeliveryAddress(
+        label: address['label'] ?? 'Home',
+        line: address['line'] ?? '',
+        city: address['city'] ?? '',
+      );
+    }
+    if (addressId != null) {
+      for (final a in DemoStore.addresses) {
+        if ('${a['id']}' == addressId) {
+          return DeliveryAddress(
+            label: '${a['label'] ?? 'Home'}',
+            line: '${a['line'] ?? ''}',
+            city: '${a['city'] ?? ''}',
+          );
+        }
+      }
+    }
+    return defaultAddress;
   }
 
   Future<ApiClient> _client(ApiClient? client) async {
@@ -138,7 +123,7 @@ class OrderRepository {
   }
 
   /// `GET /api/orders` — own orders, newest first (auth required).
-  /// Demo mode serves bundled seed instantly (no network attempted).
+  /// Demo mode serves the shared store instantly (no network attempted).
   Future<List<Order>> fetchOrders({ApiClient? client}) async {
     if (AppConfig.demoMode && client == null) {
       return [...ongoing(), ...past()];
@@ -166,6 +151,8 @@ class OrderRepository {
         total: subtotal + Cart.deliveryFee,
         orderType: orderType,
         deliverySlot: slot,
+        addressId: addressId,
+        address: address,
       );
     }
     final api = await _client(client);
@@ -189,10 +176,12 @@ class OrderRepository {
   /// `fetchOrders` shows the new status (orders screen reloads).
   Future<void> cancelOrder(String id, {ApiClient? client}) async {
     if (AppConfig.demoMode && client == null) {
-      final index = _demoOngoing.indexWhere((o) => o.id == id);
+      final index = DemoStore.orders.indexWhere((o) => '${o['id']}' == id);
       if (index != -1) {
-        _demoOngoing[index] =
-            _demoOngoing[index].copyWith(status: OrderStatus.cancelled);
+        DemoStore.orders[index] = {
+          ...DemoStore.orders[index],
+          'status': 'cancelled',
+        };
       }
       return;
     }

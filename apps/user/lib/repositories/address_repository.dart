@@ -1,4 +1,5 @@
 import '../config/app_config.dart';
+import '../config/demo_store.dart';
 import '../services/api_client.dart';
 import '../services/session_store.dart';
 
@@ -28,18 +29,16 @@ class Address {
   }
 }
 
-/// Address source. Demo mode serves the bundled default address instantly
-/// (no network attempted) and persists created addresses in a static
-/// in-memory store for the session; live mode hits the contract endpoints
+/// Address source. Demo mode serves the shared [DemoStore] address list
+/// instantly (no network attempted) and persists created addresses there
+/// for the session; live mode hits the contract endpoints
 /// `GET /api/addresses` and `POST /api/addresses` (auth required).
 class AddressRepository {
   const AddressRepository();
 
-  static final List<Address> _demoStore = [
-    const Address(id: 'home', label: 'Home', line: '123, Example Colony', city: 'Bhopal'),
-  ];
-
-  List<Address> demo() => List<Address>.of(_demoStore);
+  List<Address> demo() => DemoStore.addresses
+      .map((e) => Address.fromJson(Map<String, dynamic>.from(e)))
+      .toList();
 
   Future<ApiClient> _client(ApiClient? client) async {
     if (client != null) return client;
@@ -75,14 +74,14 @@ class AddressRepository {
     ApiClient? client,
   }) async {
     if (AppConfig.demoMode && client == null) {
-      final created = Address(
-        id: 'local-${DateTime.now().millisecondsSinceEpoch}',
-        label: label.trim(),
-        line: line.trim(),
-        city: city.trim(),
-      );
-      _demoStore.add(created);
-      return created;
+      final created = <String, dynamic>{
+        'id': 'local-${DateTime.now().millisecondsSinceEpoch}',
+        'label': label.trim(),
+        'line': line.trim(),
+        'city': city.trim(),
+      };
+      DemoStore.addresses.add(created);
+      return Address.fromJson(Map<String, dynamic>.from(created));
     }
     final api = await _client(client);
     final body = await api.post('/api/addresses', body: {

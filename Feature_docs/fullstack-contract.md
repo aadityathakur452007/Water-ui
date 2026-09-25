@@ -30,12 +30,18 @@ Monorepo: `apps/user` (customer app), `apps/vendor` (vendor app),
 - `PATCH /api/orders/:id/cancel` → own + only when `scheduled`.
 
 ## Vendor (role=vendor required, else 403) — PII RULE (ssdlc, enforced server-side)
-- Vendor responses NEVER contain user `name`, `phone`, or `email`.
-  Only: order id, items (name/qty/price), totals, delivery address
-  (label/line/city), slot, status, type, timestamps.
-- `GET /api/vendor/orders?status=` → stripped list.
+- AMENDED 2026-09-25 (user-approved, supersedes the old address+items-only
+  rule): vendor order payloads MAY include customer identity as a nested
+  `customer: {name, phone, email}` (users JOIN, null-safe — guest/legacy
+  rows yield `customer: null`, never a crash; Flutter parses tolerantly).
+  Rationale: vendors need to know their customers. Vendor may see:
+  customer name/phone/email + order id, items (name/qty/price), totals,
+  delivery address (label/line/city), slot, status, type, timestamps.
+  Nothing else from `users` leaks (never password_hash/role/sessions).
+- `GET /api/vendor/orders?status=` → list rows, each with nested `customer`.
 - `PATCH /api/vendor/orders/:id` `{status}` → allowed transitions only:
   `scheduled→preparing→out_for_delivery→delivered`, any→`cancelled`.
+  Returns the updated order detail with nested `customer`.
 - `GET /api/vendor/kpis` →
   `{todayDeliveries, todayRevenue, activeSubscriptions, pendingOrders}`.
 - `GET /api/vendor/subscriptions` → stripped (no user PII).

@@ -1,10 +1,12 @@
 import '../config/app_config.dart';
+import '../config/demo_store.dart';
 import 'api_client.dart';
 import 'session_store.dart';
 
 /// Single sign-in entry point shared by the login screen.
-/// Demo mode serves bundled seed sessions instantly (no network);
-/// live mode talks to `POST /api/auth/*` and enforces the role gate.
+/// Demo mode serves the shared [DemoStore] seed sessions instantly
+/// (no network); live mode talks to `POST /api/auth/*` and enforces
+/// the role gate.
 class AuthService {
   const AuthService({SessionStore? sessions, ApiClient? api})
       : _sessions = sessions ?? const SessionStore(),
@@ -20,27 +22,26 @@ class AuthService {
   }) async {
     final id = identifier.trim();
     if (AppConfig.demoMode) {
-      final ok = (role == 'user' &&
-              id == AppConfig.demoUserEmail &&
-              password == AppConfig.demoUserPassword) ||
-          (role == 'vendor' &&
-              id == AppConfig.demoVendorEmail &&
-              password == AppConfig.demoVendorPassword);
-      if (!ok) {
+      Map<String, dynamic>? match;
+      for (final u in DemoStore.users) {
+        final email = '${u['email'] ?? ''}';
+        final phone = '${u['phone'] ?? ''}';
+        if ((id == email || id == phone) &&
+            password == '${u['password'] ?? ''}' &&
+            role == '${u['role'] ?? ''}') {
+          match = u;
+          break;
+        }
+      }
+      if (match == null) {
         throw const AppException(
             'UNAUTHENTICATED', 'Invalid demo credentials');
       }
-      final user = role == 'vendor'
-          ? const {
-              'id': 'demo-vendor',
-              'name': 'Demo Vendor',
-              'role': 'vendor',
-            }
-          : const {
-              'id': 'demo-user',
-              'name': 'Demo User',
-              'role': 'user',
-            };
+      final user = <String, dynamic>{
+        'id': '${match['id'] ?? ''}',
+        'name': '${match['name'] ?? ''}',
+        'role': '${match['role'] ?? ''}',
+      };
       await _sessions.saveSession(token: 'demo-token-$role', user: user);
       return user;
     }
@@ -70,9 +71,18 @@ class AuthService {
     required String password,
   }) async {
     if (AppConfig.demoMode) {
-      const user = {
-        'id': 'demo-user',
-        'name': 'Demo User',
+      // Demo registration resolves to the seeded demo-user profile
+      // (same session shape as login; no new seed rows are created).
+      Map<String, dynamic>? seed;
+      for (final u in DemoStore.users) {
+        if ('${u['role']}' == 'user') {
+          seed = u;
+          break;
+        }
+      }
+      final user = <String, dynamic>{
+        'id': '${seed?['id'] ?? 'demo-user'}',
+        'name': '${seed?['name'] ?? 'Demo User'}',
         'role': 'user',
       };
       await _sessions.saveSession(

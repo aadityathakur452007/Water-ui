@@ -35,6 +35,7 @@
 
 | ID | Date | Decision | Status | Affects |
 |----|------|----------|--------|---------|
+| ADR-025 | 2026-09-25 | Vendor death-screen fix (UiTheme hoist), shared demo store, vendor customer identity, Workers/D1 adapters | Accepted | apps/user theme+config+vendor, backend app/index/worker, wrangler, docs/ |
 | ADR-021 | 2026-09-25 | Purchase-flow honesty fixes: demo order-book, addressId checkout, NETWORK-only fallbacks, status granularity, displayLabel | Accepted | apps/user (commerce scope), test/purchase_fixes_test.dart |
 | ADR-022 | 2026-09-25 | Account subtle fixes: AuthService-routed signup, demo-persisted addresses, radio payment pop, debounced search, prefs persistence | Accepted | apps/user account surfaces, address repo, test/ |
 | ADR-023 | 2026-09-25 | Vendor subtle fixes: all-omitted query, demo transition guard, onceAWeek wire, honest empty/sample labels | Accepted | apps/user vendor screens, subscription model/repo, test/ |
@@ -78,6 +79,16 @@
 ---
 
 ## Decision Entries
+
+### ADR-025: Vendor death-screen fix, shared demo store, vendor identity, Workers/D1
+- **Date**: 2026-09-25
+- **Status**: Accepted
+- **Context**: Vendor dashboard showed a blank white screen; demo user/vendor data lived in disconnected static lists so demo never synced; vendor could not identify customers; backend ran only on Bun+SQLite with no cloud path.
+- **Options considered**: Local UiTheme wrapper per screen (rejected — whack-a-mole; the throw kills any future unwrapped Ui* usage); keeping per-file demo seeds (rejected — the reported "unable to update" pain); SQLite on VPS (rejected by user — D1 chosen); new npm deps for Workers (rejected — wrangler via npx only).
+- **Decision**: Hoisted shared `waterUiThemeData()` wrapped once around MaterialApp (removed 2 private copies) + widget test proving dashboard renders; single `demo_seed.dart` + shared `DemoStore` both roles read/write (demo cross-role sync proven by test); vendor serializers LEFT JOIN users → nested `customer{name,phone,email}` (user-approved PII amendment 2026-09-25, contract PII section updated; password_hash/role/sessions never selected); backend split into portable `app.ts` + Bun `index.ts` + D1 `worker.ts` adapters, `wrangler.toml`, `migrations/0001_schema.sql`, `seed.d1.sql`, from-scratch `docs/cloudflare-workers.md`.
+- **Why**: Crash was at render, not data — one ancestor fixes the whole class; one demo store makes demo behave like the backend; adapter pattern keeps one route codebase for both runtimes with zero shape changes.
+- **Consequences**: `flutter analyze` zero, `flutter test` 30/30, `bun run check` clean, docker lifecycle + `customer` join verified live, `wrangler deploy --dry-run` + local D1 lifecycle pass. Account-bound remote deploy steps are user-run per the guide.
+- **Affects**: `apps/user/{theme/water_ui_theme,config/demo_seed,demo_store,screens/vendor,main}`, `backend/{src/app,index,worker,wrangler.toml,migrations,seed.d1.sql}`, `Feature_docs/fullstack-contract.md`, `docs/cloudflare-workers.md`
 
 ### ADR-021: Purchase-flow honesty fixes (commerce scope)
 - **Date**: 2026-09-25

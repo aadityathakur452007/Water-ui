@@ -1,0 +1,15 @@
+# Cloudflare Workers + D1 config (from-scratch; see docs/cloudflare-workers.md).
+name = "water-delivery-api"
+main = "src/worker.ts"
+compatibility_date = "2026-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+# No secrets required: auth is Bearer hex tokens in the `sessions` table
+# (DB rows, not env secrets). Add `wrangler secret put` entries here only
+# if a future revision needs signing keys.
+
+[[d1_databases]]
+binding = "DB"
+database_name = "water-delivery-db"
+# Fill after `wrangler d1 create water-delivery-db` — paste the database_id it prints.
+database_id = "REPLACE_AFTER_WRANGLER_D1_CREATE"

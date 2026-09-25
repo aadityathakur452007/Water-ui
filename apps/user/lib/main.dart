@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_ui_collection/flutter_ui_collection.dart';
 import 'package:shop/route/router.dart' as router;
 import 'package:shop/screens/auth/views/login_screen.dart';
 import 'package:shop/screens/onbording/views/onbording_screnn.dart';
 import 'package:shop/services/session_store.dart';
 import 'package:shop/theme/app_theme.dart';
+import 'package:shop/theme/water_ui_theme.dart';
 
 void main() {
   runApp(const MyApp());
@@ -18,15 +20,21 @@ class MyApp extends StatelessWidget {
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Water Delivery',
-      theme: AppTheme.lightTheme(context),
-      // Dark theme is inclided in the Full template
-      themeMode: ThemeMode.light,
-      onGenerateRoute: router.generateRoute,
-      onUnknownRoute: router.onUnknownRoute,
-      home: const _BootGate(),
+    // UiTheme ancestor for every flutter_ui_collection widget (notably
+    // VendorDashboardScreen's UiKpiRow/UiBarChart — without this the
+    // release build hits `widget!.data` null and blanks the screen).
+    return UiTheme(
+      data: waterUiThemeData(),
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'Water Delivery',
+        theme: AppTheme.lightTheme(context),
+        // Dark theme is inclided in the Full template
+        themeMode: ThemeMode.light,
+        onGenerateRoute: router.generateRoute,
+        onUnknownRoute: router.onUnknownRoute,
+        home: const _BootGate(),
+      ),
     );
   }
 }
