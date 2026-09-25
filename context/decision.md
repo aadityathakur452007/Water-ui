@@ -35,6 +35,7 @@
 
 | ID | Date | Decision | Status | Affects |
 |----|------|----------|--------|---------|
+| ADR-019 | 2026-09-25 | Unified role-based app; demo seed mode; vendor line merged, apps/vendor retired | Accepted | apps/user, branches |
 | ADR-018 | 2026-09-24 | Fullstack: Bun+Hono+SQLite(D1-ready), vendor app, flutter_ui_collection, server-side PII strip | Accepted | backend/, apps/, CI |
 | ADR-017 | 2026-09-24 | Every commit auto-publishes rolling `latest` prerelease; tags stay immutable | Accepted | .github/workflows/release.yml |
 | ADR-016 | 2026-09-24 | Phase 2 on feature/water-phase2: order-type, subscriptions, search, notifications, account | Accepted | lib/screens, lib/route, CI |
@@ -76,6 +77,15 @@
 <!-- Newest decisions go at the top of this section. Keep this section growing — it is
      the living memory of the project. Delete the two example entries below once you
      have real decisions. -->
+
+### ADR-019: One app, role-based home; demo seed mode; vendor branch merged
+- **Date**: 2026-09-25
+- **Status**: Accepted
+- **Context**: Two branches produced one identical user APK (vendor never built); login demanded a live server; user ordered unification (one login, role decides experience), offline seed fallback, User/Vendor toggle, single new branch.
+- **Decision**: `feature/water-unified` off user-app-audit; merged vendor-app (CI conflict resolved keeping backend job); vendor screens ported to `apps/user/lib/screens/vendor/` reusing ApiClient/SessionStore (new VendorService with demo seed + HTTP); login has User/Vendor SegmentedButton + one-tap demo logins + role routing; signup stays user-only with vendor-provisioned note (self-registration as vendor would violate server-side role forcing); `AppConfig.demoMode` (default true, dart-define override) short-circuits repos to bundled seed — zero network waits; `apps/vendor` deleted; logout wired both sides.
+- **Why**: One APK to install, one codebase to extend, no duplicated auth/nav; demo default makes CI builds instantly usable; role checks stay server-side in live mode.
+- **Consequences**: `feature/vendor-app` retired (merged). CI green on unified (Analyze/Test/backend/Build). `latest` release now serves the unified app.
+- **Affects**: `apps/user/{config,services,screens/vendor}`, login/signup, router, branches
 
 ### ADR-018: Real backend + vendor app + library adoption via 3 parallel agents
 - **Date**: 2026-09-24

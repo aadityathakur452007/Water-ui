@@ -184,10 +184,19 @@ USER APP (real API; mocks kept as offline fallback)
 Home → ApiClient → Hono → SQLite → order/tracking reflects vendor updates
 Auth: login/signup → sessions → Bearer token (shared_preferences)
 
-VENDOR APP (separate app, PII-stripped by server)
+VENDOR APP (merged into unified app 2026-09-25 — see below; PII stripped by server)
 Login (role gate) → Dashboard (KPIs) → Orders (address+items only)
   → advance status → user app sees new status on refresh
 Backend: docker compose up → :3000 (10.0.2.2:3000 from Android emulator)
+
+### Unified auth + roles (2026-09-25, ADR-019)
+```
+Login (User/Vendor toggle, demo one-tap buttons in demo mode)
+  ├─ role=user   → EntryPoint (Home/Orders/Shop/Account)
+  └─ role=vendor → VendorHome (Dashboard/Orders/Deliveries) + logout
+Demo mode (default true): bundled seed, no network attempted.
+Live (DEMO_MODE=false): API + loading/error states.
+```
 
 ### Screen detail (user app)
 ```
