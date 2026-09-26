@@ -58,8 +58,8 @@ class ProductModel {
   }
 }
 
-const String waterJarImg = "assets/icons/water_jar.svg";
-const String waterBottleImg = "assets/icons/water_bottle.svg";
+const String waterJarImg = "assets/images/jar_20l.jpg";
+const String waterBottleImg = "assets/images/bottle_1l.png";
 
 const List<ProductModel> demoPopularProducts = [
   ProductModel(

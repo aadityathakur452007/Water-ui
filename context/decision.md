@@ -35,6 +35,7 @@
 
 | ID | Date | Decision | Status | Affects |
 |----|------|----------|--------|---------|
+| ADR-026 | 2026-09-26 | Shodasha branding: logo/photos, OS names, generated launcher icons | Accepted | apps/user assets+manifests+seeds, flutter_launcher_icons dev-dep |
 | ADR-025 | 2026-09-25 | Vendor death-screen fix (UiTheme hoist), shared demo store, vendor customer identity, Workers/D1 adapters | Accepted | apps/user theme+config+vendor, backend app/index/worker, wrangler, docs/ |
 | ADR-021 | 2026-09-25 | Purchase-flow honesty fixes: demo order-book, addressId checkout, NETWORK-only fallbacks, status granularity, displayLabel | Accepted | apps/user (commerce scope), test/purchase_fixes_test.dart |
 | ADR-022 | 2026-09-25 | Account subtle fixes: AuthService-routed signup, demo-persisted addresses, radio payment pop, debounced search, prefs persistence | Accepted | apps/user account surfaces, address repo, test/ |
@@ -79,6 +80,16 @@
 ---
 
 ## Decision Entries
+
+### ADR-026: Shodasha branding — logo, photos, OS names, launcher icons
+- **Date**: 2026-09-26
+- **Status**: Accepted
+- **Context**: Install name showed `shop` with default Flutter icon; product art was SVG placeholders; user supplied `public/` logo + 20L/1L photos and the Shodasha Mineral Waters name.
+- **Options considered**: Renaming the Dart package `shop` (rejected — rewrites every `package:shop` import for zero user-visible gain); hand-placing icons (rejected — generator covers all densities + iOS set); raster category chips (rejected — `SvgPicture` crash).
+- **Decision**: Photos for jars/cans (`jar_20l.jpg`) and packs (`bottle_1l.png`) in `product_model` + both backend seeds; OS label `Shodasha`, in-app title `Shodasha Mineral Waters`, AppBar `logo.png`; `flutter_launcher_icons` dev-dep (ships nothing) generated all icons.
+- **Why**: Loader already branched raster vs SVG, so the swap is data-only; dev-dep keeps the runtime dependency list unchanged.
+- **Consequences**: `20l.jpg` checkered backdrop shows on white cards (source JPG, no transparency); `Shoplon.svg` left unused in assets; `public/` stays untracked source folder.
+- **Affects**: `apps/user/assets/images`, manifests, `product_model.dart`, `entry_point.dart`, `main.dart`, backend seeds, `pubspec.yaml` (dev only)
 
 ### ADR-025: Vendor death-screen fix, shared demo store, vendor identity, Workers/D1
 - **Date**: 2026-09-25

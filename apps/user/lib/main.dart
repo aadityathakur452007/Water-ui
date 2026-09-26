@@ -27,7 +27,7 @@ class MyApp extends StatelessWidget {
       data: waterUiThemeData(),
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'Water Delivery',
+        title: 'Shodasha Mineral Waters',
         theme: AppTheme.lightTheme(context),
         // Dark theme is inclided in the Full template
         themeMode: ThemeMode.light,
