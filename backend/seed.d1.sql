@@ -5,7 +5,7 @@
 -- so hashes are per-env — each env seeds its own vendor row).
 INSERT OR IGNORE INTO products (id, name, capacity, unit, container, water_type, price, image, available) VALUES
   ('wd-20l-refill', '20L Water Refill (Own Container)', '20 Litres', 'refill', 'Your Own Container', 'Drinking Water', 28, 'assets/images/jar_20l.jpg', 1),
-  ('wd-20l-jar', '20L Jar with Container', '20 Litres', 'jar', 'Jar with Tap', 'Drinking Water', 30, 'assets/images/jar_20l.jpg', 1),
+  ('wd-20l-jar', '20L Jar with Container', '20 Litres', 'jar', 'Jar with Tap', 'Drinking Water', 30, 'assets/images/jar_20l_container.png', 1),
   ('wd-1l', '1L Water Bottle', '1 Litre', 'bottle', 'PET Bottle', 'Drinking Water', 0, 'assets/images/bottle_1l.png', 0);
 
 INSERT OR IGNORE INTO users (id, name, phone, email, password_hash, role, created_at) VALUES

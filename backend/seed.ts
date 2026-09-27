@@ -15,7 +15,7 @@ export const VENDOR_PASSWORD = "Vendor@123";
 
 const PRODUCTS = [
   { id: "wd-20l-refill", name: "20L Water Refill (Own Container)", capacity: "20 Litres", unit: "refill", container: "Your Own Container", water_type: "Drinking Water", price: 28, image: "assets/images/jar_20l.jpg", available: 1 },
-  { id: "wd-20l-jar", name: "20L Jar with Container", capacity: "20 Litres", unit: "jar", container: "Jar with Tap", water_type: "Drinking Water", price: 30, image: "assets/images/jar_20l.jpg", available: 1 },
+  { id: "wd-20l-jar", name: "20L Jar with Container", capacity: "20 Litres", unit: "jar", container: "Jar with Tap", water_type: "Drinking Water", price: 30, image: "assets/images/jar_20l_container.png", available: 1 },
   { id: "wd-1l", name: "1L Water Bottle", capacity: "1 Litre", unit: "bottle", container: "PET Bottle", water_type: "Drinking Water", price: 0, image: "assets/images/bottle_1l.png", available: 0 },
 ];
 

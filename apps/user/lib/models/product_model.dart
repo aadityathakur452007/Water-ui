@@ -74,7 +74,7 @@ const List<ProductModel> demoPopularProducts = [
   ),
   ProductModel(
     id: "wd-20l-jar",
-    image: waterJarImg,
+    image: "assets/images/jar_20l_container.png",
     brandName: "20 Litres",
     title: "20L Jar with Container",
     price: 30,
