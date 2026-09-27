@@ -7,8 +7,9 @@ import 'package:shop/services/vendor_service.dart';
 import 'vendor_dashboard_screen.dart';
 import 'vendor_deliveries_screen.dart';
 import 'vendor_orders_screen.dart';
+import 'vendor_settings_screen.dart';
 
-/// Vendor home: Dashboard / Orders / Deliveries tabs + logout.
+/// Vendor home: Dashboard / Orders / Deliveries / Settings tabs + logout.
 /// Reached only after a vendor-role login (see LoginScreen).
 class VendorHomeScreen extends StatefulWidget {
   const VendorHomeScreen({super.key});
@@ -66,8 +67,9 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
       VendorOrdersScreen(
           service: _service, onViewDashboard: () => _goTab(0)),
       VendorDeliveriesScreen(service: _service),
+      const VendorSettingsScreen(),
     ];
-    const titles = ['Dashboard', 'Orders', 'Deliveries'];
+    const titles = ['Dashboard', 'Orders', 'Deliveries', 'Settings'];
     return Scaffold(
       appBar: AppBar(
         title: Text(titles[_index]),
@@ -92,6 +94,8 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
               icon: Icon(Icons.local_shipping), label: 'Orders'),
           BottomNavigationBarItem(
               icon: Icon(Icons.repeat), label: 'Deliveries'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.settings), label: 'Settings'),
         ],
       ),
     );

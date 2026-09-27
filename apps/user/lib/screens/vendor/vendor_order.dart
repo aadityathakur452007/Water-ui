@@ -21,17 +21,23 @@ String nextStatusLabel(String status) => switch (status) {
 
 class VendorOrderItem {
   VendorOrderItem(
-      {required this.name, required this.qty, required this.price});
+      {required this.name,
+      required this.qty,
+      required this.price,
+      this.productId = ''});
 
   final String name;
   final int qty;
   final num price;
+  final String productId;
 
   factory VendorOrderItem.fromJson(Map<String, dynamic> json) =>
       VendorOrderItem(
         name: '${json['name'] ?? ''}',
         qty: (json['qty'] as num? ?? 0).toInt(),
         price: json['price'] as num? ?? 0,
+        productId:
+            '${json['productId'] ?? json['product_id'] ?? ''}',
       );
 }
 
@@ -50,6 +56,8 @@ class VendorOrder {
     this.customerName = '',
     this.customerPhone = '',
     this.customerEmail = '',
+    this.days = '',
+    this.frequency = '',
   });
 
   final String id;
@@ -65,6 +73,11 @@ class VendorOrder {
   final String customerName;
   final String customerPhone;
   final String customerEmail;
+  // Optional subscription context: orders don't carry `days` today, so
+  // these stay empty unless the backend adds them — UI shows nothing
+  // rather than inventing data (never fake the chip).
+  final String days;
+  final String frequency;
 
   /// True when at least one customer field is present (controls whether
   /// the UI shows the customer card).
@@ -103,6 +116,18 @@ class VendorOrder {
       customerName: '${c['name'] ?? ''}',
       customerPhone: '${c['phone'] ?? ''}',
       customerEmail: '${c['email'] ?? ''}',
+      days: '${json['days'] ?? ''}',
+      frequency: '${json['frequency'] ?? ''}',
     );
+  }
+
+  /// Pretty days for the chip ("Mon,Wed,Fri" → "Mon, Wed, Fri").
+  String get daysLabel {
+    final parts =
+        days.split(',').map((p) => p.trim()).where((p) => p.isNotEmpty).toList();
+    if (parts.isEmpty) return '';
+    return parts
+        .map((p) => p[0].toUpperCase() + p.substring(1).toLowerCase())
+        .join(', ');
   }
 }

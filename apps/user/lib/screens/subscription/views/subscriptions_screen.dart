@@ -182,7 +182,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            "${sub.quantity} ${sub.quantity == 1 ? 'jar' : 'jars'} / delivery\n${sub.frequencyLabel} · ${sub.deliveryTime}\nNext: ${skipped ? 'after next' : sub.nextDelivery}",
+            "${sub.quantity} ${sub.quantity == 1 ? 'jar' : 'jars'} / delivery\n${sub.frequencyLabel}${sub.daysLabel.isEmpty ? '' : ' (${sub.daysLabel})'} · ${sub.deliveryTime}\nNext: ${skipped ? 'after next' : sub.nextDelivery}",
             style: Theme.of(context).textTheme.bodyMedium,
           ),
           const SizedBox(height: 8),

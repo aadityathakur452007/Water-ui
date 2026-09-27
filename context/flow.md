@@ -193,6 +193,11 @@ Login (role gate) → Dashboard (KPIs, re-fetch on tab revisit + pull-refresh
   cancel requires confirm dialog) → advance status (demo mirrors live guard:
   forward-only, cancel from non-final, else CONFLICT) → user app sees new
   status on refresh
+Vendor KPIs (extended client-side from full vendor orders list, no new
+  endpoints): hero today-revenue/deliveries/pending/active-subs + week
+  completions, cancelled, customers (+new-week), AOV, refill-vs-jar mix.
+Vendor Settings tab: profile/slots/notifications/support (SharedPreferences-
+  local; no settings endpoint exists).
 Demo data: single config/demo_seed.dart + shared DemoStore — user and vendor
   repos read/write the same order/address/subscription lists, so demo user
   place → vendor sees → vendor advance → user reflects (mirrors live DB).
@@ -226,8 +231,8 @@ HomeScreen
   ├─ OrderAgain → OrderRepository.fetchOrders (NETWORK-only fallback + offline chip; error card + retry, hides only on genuine empty)
   └─ ActiveDelivery → subscriptions (NETWORK-only fallback + offline chip; error card + retry, hides only on genuine empty)
 ProductDetailsScreen → spec table/qty → orderTypeScreenRoute{productId, qty}
-OrderTypeScreen → one-time → cart{…} | regular → subscriptionConfig → cart
-CartScreen → fetchAddresses (RadioListTile select, default first; defaultAddress fallback only when empty) → POST /api/orders{items, addressId|address, type, slot} → success (pushReplacement → orders{id}, auto-open detail sheet) | NETWORK failure → inline not-sent state + retry (never success)
+OrderTypeScreen → one-time → cart{…} | regular → subscriptionConfig (frequency + Mon–Sun day picker for specific_days + live summary → cart{days}) → cart
+CartScreen → fetchAddresses (RadioListTile select, default first; defaultAddress fallback only when empty) → POST /api/orders{items, addressId|address, type, slot} → success (pushReplacement → orders{id}, auto-open detail sheet + refill↔jar cross-sell card) | NETWORK failure → inline not-sent state + retry (never success)
 OrdersScreen (ONGOING/PAST, incl. preparing/out_for_delivery) → View sheet (titled + Close) → OrderProgress timeline; auto-opens sheet when route args carry an order id; empty → "Order water" CTA → discover
 SubscriptionsScreen → pause/skip/modify (live: GET/POST/PATCH /api/subscriptions; demo: local state)
 SearchScreen → ProductRepository.search() → details grid

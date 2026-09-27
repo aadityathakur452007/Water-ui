@@ -18,6 +18,23 @@ class ProductRepository {
         orElse: () => fallback ?? demoPopularProducts.first,
       );
 
+  /// Nullable lookup: returns null for unknown ids (order rows use this
+  /// for the thumbnail fallback so a stale productId never throws).
+  ProductModel? tryById(String id) {
+    for (final p in demoPopularProducts) {
+      if (p.id == id) return p;
+    }
+    return null;
+  }
+
+  /// Refill↔jar cross-sell sibling. Returns null for the 1L bottle
+  /// (unavailable — no cross-sell) and for unknown ids.
+  ProductModel? crossSellSibling(String id) {
+    if (id == 'wd-20l-refill') return tryById('wd-20l-jar');
+    if (id == 'wd-20l-jar') return tryById('wd-20l-refill');
+    return null;
+  }
+
   List<ProductModel> byCategory(String query) {
     final q = query.toLowerCase();
     if (q.contains("jar")) {

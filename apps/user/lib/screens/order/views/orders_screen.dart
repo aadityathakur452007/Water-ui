@@ -1,14 +1,51 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_ui_collection/flutter_ui_collection.dart';
 import 'package:shop/components/custom_modal_bottom_sheet.dart';
+import 'package:shop/components/network_image_with_loader.dart';
 import 'package:shop/components/skleton/skelton.dart';
 import 'package:shop/constants.dart';
 import 'package:shop/models/cart_model.dart';
 import 'package:shop/models/order_model.dart';
 import 'package:shop/repositories/order_repository.dart';
+import 'package:shop/repositories/product_repository.dart';
 import 'package:shop/route/route_constants.dart';
 import 'package:shop/services/api_client.dart';
 import 'package:shop/services/auth_service.dart';
+
+/// Product thumbnail for an order line. Unknown productIds render a
+/// water-drop placeholder instead of throwing.
+class OrderItemThumbnail extends StatelessWidget {
+  const OrderItemThumbnail({super.key, required this.productId, this.size = 48});
+
+  final String productId;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final product = const ProductRepository().tryById(productId);
+    if (product == null) {
+      return Container(
+        height: size,
+        width: size,
+        decoration: const BoxDecoration(
+          color: Color(0xFFEAF4FC),
+          borderRadius:
+              BorderRadius.all(Radius.circular(defaultBorderRadious / 2)),
+        ),
+        child: const Icon(Icons.water_drop_outlined,
+            color: primaryColor, size: 24),
+      );
+    }
+    return SizedBox(
+      height: size,
+      width: size,
+      child: NetworkImageWithLoader(
+        product.image,
+        radius: defaultBorderRadious / 2,
+      ),
+    );
+  }
+}
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
@@ -302,6 +339,8 @@ class _OrderListState extends State<_OrderList> {
       itemBuilder: (context, index) {
         final order = orders[index];
         final cancelling = _busy.contains(order.id);
+        final firstProductId =
+            order.items.isEmpty ? '' : order.items.first.productId;
         return Container(
           margin: const EdgeInsets.only(bottom: defaultPadding),
           padding: const EdgeInsets.all(defaultPadding),
@@ -310,9 +349,15 @@ class _OrderListState extends State<_OrderList> {
             borderRadius: const BorderRadius.all(
                 Radius.circular(defaultBorderRadious)),
           ),
-          child: Column(
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              OrderItemThumbnail(productId: firstProductId),
+              const SizedBox(width: defaultPadding / 2),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -360,6 +405,9 @@ class _OrderListState extends State<_OrderList> {
                       ),
                       child: const Text("View"),
                     ),
+                  ],
+                ),
+              ),
                   ],
                 ),
               ),
@@ -420,6 +468,44 @@ class _OrderDetailSheet extends StatelessWidget {
         children: [
           Text(order.itemsSummary),
           Text("${inr(order.totalAmount)} · ${order.deliverySlot}"),
+          const SizedBox(height: defaultPadding),
+          for (final item in order.items) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                children: [
+                  OrderItemThumbnail(productId: item.productId, size: 40),
+                  const SizedBox(width: defaultPadding / 2),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.name,
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleSmall!
+                              .copyWith(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          "${item.qty} × ${inr(item.price)}",
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Text(
+                    inr(item.lineTotal),
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleSmall!
+                        .copyWith(fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: defaultPadding),
           // Library timeline (water-blue UiTheme comes from the root in
           // main.dart) — replaces the bespoke dot-row so tracking stays

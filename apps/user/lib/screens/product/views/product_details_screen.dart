@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:shop/components/cart_button.dart';
 import 'package:shop/components/custom_modal_bottom_sheet.dart';
+import 'package:shop/components/network_image_with_loader.dart';
 import 'package:shop/components/product/product_card.dart';
 import 'package:shop/constants.dart';
+import 'package:shop/models/cart_model.dart';
 import 'package:shop/models/product_model.dart';
 import 'package:shop/repositories/product_repository.dart';
 
@@ -91,6 +93,13 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 ),
               ),
             ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(
+                    defaultPadding, 0, defaultPadding, defaultPadding),
+                child: _PairsWellCard(currentId: product.id),
+              ),
+            ),
             ProductListTile(
               svgSrc: "assets/icons/Delivery.svg",
               title: "Delivery Information",
@@ -160,8 +169,62 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   }
 }
 
-class _SpecTable extends StatelessWidget {
-  const _SpecTable({required this.product});
+/// Refill↔jar cross-sell under the main action. Renders nothing for the
+/// 1L bottle (unavailable) and unknown ids. Tap replaces (no stacking).
+class _PairsWellCard extends StatelessWidget {
+  const _PairsWellCard({required this.currentId});
+
+  final String currentId;
+
+  @override
+  Widget build(BuildContext context) {
+    final sibling = const ProductRepository().crossSellSibling(currentId);
+    if (sibling == null) return const SizedBox.shrink();
+    final bool needJar = sibling.unit == 'jar';
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: Theme.of(context).dividerColor),
+        borderRadius: const BorderRadius.all(
+            Radius.circular(defaultBorderRadious)),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(defaultPadding / 2),
+        leading: SizedBox(
+          height: 48,
+          width: 48,
+          child: NetworkImageWithLoader(
+            sibling.image,
+            radius: defaultBorderRadious / 2,
+          ),
+        ),
+        title: Text(
+          "Pairs well",
+          style: Theme.of(context)
+              .textTheme
+              .bodyMedium!
+              .copyWith(fontSize: 11, color: blackColor60),
+        ),
+        subtitle: Text(
+          needJar
+              ? "No container? Get the jar with tap · ${sibling.title} · ${inr(sibling.price)}"
+              : "Have a jar? Just refill · ${sibling.title} · ${inr(sibling.price)}",
+          style: Theme.of(context)
+              .textTheme
+              .titleSmall!
+              .copyWith(fontWeight: FontWeight.w600),
+        ),
+        trailing: const Icon(Icons.arrow_forward, size: 18),
+        onTap: () => Navigator.pushReplacementNamed(
+          context,
+          productDetailsScreenRoute,
+          arguments: sibling.id,
+        ),
+      ),
+    );
+  }
+}
+
+class _SpecTable extends StatelessWidget {  const _SpecTable({required this.product});
 
   final ProductModel product;
 

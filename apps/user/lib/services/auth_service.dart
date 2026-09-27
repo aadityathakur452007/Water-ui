@@ -40,6 +40,8 @@ class AuthService {
       final user = <String, dynamic>{
         'id': '${match['id'] ?? ''}',
         'name': '${match['name'] ?? ''}',
+        'email': '${match['email'] ?? ''}',
+        'phone': '${match['phone'] ?? ''}',
         'role': '${match['role'] ?? ''}',
       };
       await _sessions.saveSession(token: 'demo-token-$role', user: user);
@@ -83,6 +85,8 @@ class AuthService {
       final user = <String, dynamic>{
         'id': '${seed?['id'] ?? 'demo-user'}',
         'name': '${seed?['name'] ?? 'Demo User'}',
+        'email': email.trim(),
+        'phone': phone.trim(),
         'role': 'user',
       };
       await _sessions.saveSession(

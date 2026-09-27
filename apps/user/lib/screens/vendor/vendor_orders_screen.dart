@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../components/network_image_with_loader.dart';
+import '../../models/cart_model.dart';
+import '../../repositories/product_repository.dart';
 import '../../route/route_constants.dart';
 import '../../services/api_client.dart';
 import '../../services/auth_service.dart';
@@ -12,6 +15,8 @@ import 'vendor_order_detail_screen.dart';
 ///
 /// Customer identity (name/phone/email from the approved nested `customer`
 /// block) renders above the address; rows without it show address only.
+/// Thumbnails resolve locally via `ProductRepository.byId().image`
+/// (fallback icon); amounts use `inr()`; status uses badge colors.
 class VendorOrdersScreen extends StatefulWidget {
   const VendorOrdersScreen(
       {super.key, required this.service, this.onViewDashboard});
@@ -23,6 +28,21 @@ class VendorOrdersScreen extends StatefulWidget {
 
   @override
   State<VendorOrdersScreen> createState() => _VendorOrdersScreenState();
+}
+
+Color _statusColor(String status) {
+  switch (status) {
+    case 'delivered':
+      return const Color(0xFF2E7D32);
+    case 'cancelled':
+      return const Color(0xFFD32F2F);
+    case 'out_for_delivery':
+      return const Color(0xFF1B7BD6);
+    case 'preparing':
+      return const Color(0xFFEF6C00);
+    default:
+      return const Color(0xFF6E6E73);
+  }
 }
 
 class _VendorOrdersScreenState extends State<VendorOrdersScreen> {
@@ -37,6 +57,7 @@ class _VendorOrdersScreenState extends State<VendorOrdersScreen> {
 
   String _status = 'all';
   late Future<List<VendorOrder>> _future;
+  final _products = const ProductRepository();
 
   @override
   void initState() {
@@ -50,7 +71,8 @@ class _VendorOrdersScreenState extends State<VendorOrdersScreen> {
   Future<void> _openDetail(VendorOrder order) async {
     // The detail pops the new status string; the SnackBar lives here so
     // it uses a live context (showing it after pop in the detail is a
-    // popped-context bug).
+    // popped-context bug). List + KPIs re-fetch on return (shared
+    // store/DB is the sync path — no push channel).
     final updated = await Navigator.of(context).push<String>(
       MaterialPageRoute(
         builder: (_) => VendorOrderDetailScreen(
@@ -173,7 +195,10 @@ class _VendorOrdersScreenState extends State<VendorOrdersScreen> {
                 );
               }
               return RefreshIndicator(
-                onRefresh: () async => _refresh(),
+                onRefresh: () async {
+                  _refresh();
+                  await _future;
+                },
                 child: ListView.separated(
                   padding: const EdgeInsets.all(12),
                   itemCount: orders.length + 1,
@@ -189,26 +214,126 @@ class _VendorOrdersScreenState extends State<VendorOrdersScreen> {
                       );
                     }
                     final o = orders[i - 1];
-                    final itemsLabel = o.items
-                        .map((e) => '${e.name} \u00D7${e.qty}')
-                        .join(', ');
                     final customerParts = [
                       if (o.customerName.isNotEmpty) o.customerName,
                       if (o.customerPhone.isNotEmpty) o.customerPhone,
-                      if (o.customerEmail.isNotEmpty) o.customerEmail,
                     ];
+                    final thumbId = o.items.isNotEmpty
+                        ? o.items.first.productId
+                        : '';
+                    final thumbImg = thumbId.isNotEmpty
+                        ? _products.byId(thumbId).image
+                        : '';
+                    // Days chip: orders carry no `days` today — show the
+                    // days value when present, else the frequency for
+                    // regular orders when present, else nothing (never
+                    // invent delivery days).
+                    final daysChip = o.daysLabel.isNotEmpty
+                        ? o.daysLabel
+                        : o.frequency.isNotEmpty
+                            ? o.frequency
+                            : o.type == 'regular'
+                                ? 'Regular'
+                                : '';
                     return Card(
-                      child: ListTile(
-                        title: Text(
-                            '#${o.id} \u00B7 \u20B9${o.total}',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w600)),
-                        subtitle: Text(
-                          '${customerParts.isNotEmpty ? '${customerParts.join(' \u00B7 ')}\n' : ''}${o.addressLine}, ${o.addressCity}\n$itemsLabel\nSlot: ${o.slot} \u00B7 ${o.status.replaceAll('_', ' ')}',
-                        ),
-                        isThreeLine: true,
-                        trailing: const Icon(Icons.chevron_right),
+                      child: InkWell(
                         onTap: () => _openDetail(o),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (thumbImg.isNotEmpty)
+                                SizedBox(
+                                  width: 44,
+                                  height: 44,
+                                  child: NetworkImageWithLoader(thumbImg,
+                                      radius: 8),
+                                )
+                              else
+                                const SizedBox(
+                                  width: 44,
+                                  height: 44,
+                                  child: Icon(Icons.water_drop,
+                                      color: Color(0xFF1B7BD6)),
+                                ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                              '#${o.id} \u00B7 ${inr(o.total.toDouble())}',
+                                              style: const TextStyle(
+                                                  fontWeight:
+                                                      FontWeight.w600)),
+                                        ),
+                                        Container(
+                                          padding:
+                                              const EdgeInsets.symmetric(
+                                                  horizontal: 8,
+                                                  vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: _statusColor(o.status)
+                                                .withValues(alpha: 0.12),
+                                            borderRadius:
+                                                BorderRadius.circular(12),
+                                          ),
+                                          child: Text(
+                                            o.status.replaceAll('_', ' '),
+                                            style: TextStyle(
+                                                color:
+                                                    _statusColor(o.status),
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    if (customerParts.isNotEmpty)
+                                      Padding(
+                                        padding:
+                                            const EdgeInsets.only(top: 2),
+                                        child: Text(
+                                            customerParts.join(' \u00B7 '),
+                                            style: const TextStyle(
+                                                fontWeight:
+                                                    FontWeight.w500)),
+                                      ),
+                                    const SizedBox(height: 2),
+                                    for (final item in o.items)
+                                      Text(
+                                          '${item.qty} \u00D7 ${item.name}'),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Slot: ${o.slot}',
+                                      style: const TextStyle(
+                                          color: Color(0xFF6E6E73)),
+                                    ),
+                                    if (daysChip.isNotEmpty)
+                                      Padding(
+                                        padding:
+                                            const EdgeInsets.only(top: 4),
+                                        child: Chip(
+                                          label: Text(daysChip,
+                                              style: const TextStyle(
+                                                  fontSize: 12)),
+                                          visualDensity:
+                                              VisualDensity.compact,
+                                          padding: EdgeInsets.zero,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              const Icon(Icons.chevron_right),
+                            ],
+                          ),
+                        ),
                       ),
                     );
                   },

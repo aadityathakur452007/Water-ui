@@ -13,6 +13,7 @@ class Subscription {
   final SubscriptionStatus status;
   final String nextDelivery;
   final bool skipNext;
+  final String days;
 
   const Subscription({
     required this.id,
@@ -25,6 +26,7 @@ class Subscription {
     required this.status,
     required this.nextDelivery,
     this.skipNext = false,
+    this.days = '',
   });
 
   String get frequencyLabel {
@@ -49,6 +51,7 @@ class Subscription {
     SubscriptionStatus? status,
     String? nextDelivery,
     bool? skipNext,
+    String? days,
   }) {
     return Subscription(
       id: id,
@@ -61,13 +64,37 @@ class Subscription {
       status: status ?? this.status,
       nextDelivery: nextDelivery ?? this.nextDelivery,
       skipNext: skipNext ?? this.skipNext,
+      days: days ?? this.days,
     );
   }
 
+  /// Pretty display for the optional `days` wire value ("Mon,Wed,Fri" →
+  /// "Mon, Wed, Fri"). Empty when no days are set — callers show nothing.
+  String get daysLabel {
+    final parts = days.split(',').map((p) => p.trim()).where((p) => p.isNotEmpty).toList();
+    if (parts.isEmpty) return '';
+    return parts.map((p) => p[0].toUpperCase() + p.substring(1).toLowerCase()).join(', ');
+  }
+
+  /// Wire map for POST/PATCH update paths (backend accepts snake/camel;
+  /// `days` is the shared key, omitted when empty).
+  Map<String, dynamic> toJson() => {
+        'product_id': productId,
+        'quantity': quantity,
+        'frequency': frequencyToWire(frequency),
+        'start_date': startDate,
+        'delivery_time': deliveryTime,
+        'status': status == SubscriptionStatus.paused ? 'paused' : 'active',
+        'next_delivery': nextDelivery,
+        'skip_next': skipNext,
+        if (days.isNotEmpty) 'days': days,
+      };
+
   /// Parses the backend subscription row:
   /// `{id,product_id,quantity,frequency,start_date,delivery_time,
-  /// status,next_delivery}`. Served by GET/POST/PATCH /api/subscriptions
-  /// (backend/src/index.ts; absent from the frozen contract doc).
+  /// status,next_delivery,days}`. Served by GET/POST/PATCH /api/subscriptions
+  /// (backend/src/app.ts; absent from the frozen contract doc).
+  /// `days` is optional display text (wire key `days`, e.g. "Mon,Wed,Fri").
   factory Subscription.fromJson(Map<String, dynamic> json) {
     return Subscription(
       id: json['id']?.toString() ?? '',
@@ -93,6 +120,7 @@ class Subscription {
       skipNext: json['skip_next'] == 1 ||
           json['skip_next'] == true ||
           json['skipNext'] == true,
+      days: (json['days'] ?? json['Days'])?.toString() ?? '',
     );
   }
 }

@@ -24,6 +24,10 @@ const subCols = (db.query("PRAGMA table_info(subscriptions)").all() as Row[]).ma
 if (!subCols.includes("skip_next")) {
   db.exec("ALTER TABLE subscriptions ADD COLUMN skip_next INTEGER NOT NULL DEFAULT 0");
 }
+// Migration 0002: optional delivery days (nullable TEXT, wire key `days`).
+if (!subCols.includes("days")) {
+  db.exec("ALTER TABLE subscriptions ADD COLUMN days TEXT");
+}
 await seedIfEmpty(db);
 
 // ---------- Bun-backed DbClient (async wrappers over sync bun:sqlite) ----------

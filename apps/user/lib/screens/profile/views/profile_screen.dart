@@ -57,8 +57,24 @@ class _Bar extends StatelessWidget {
   }
 }
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  Future<Map<String, dynamic>?>? _userFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _reload();
+  }
+
+  void _reload() =>
+      setState(() => _userFuture = const SessionStore().readUser());
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +82,7 @@ class ProfileScreen extends StatelessWidget {
       body: ListView(
         children: [
           FutureBuilder<Map<String, dynamic>?>(
-            future: const SessionStore().readUser(),
+            future: _userFuture,
             builder: (context, snap) {
               if (snap.connectionState == ConnectionState.waiting) {
                 return const _ProfileSkeleton();
@@ -81,7 +97,8 @@ class ProfileScreen extends StatelessWidget {
                 // proLableText: "Sliver",
                 // isPro: true, if the user is pro
                 press: () {
-                  Navigator.pushNamed(context, userInfoScreenRoute);
+                  Navigator.pushNamed(context, userInfoScreenRoute)
+                      .then((_) => _reload());
                 },
               );
             },
@@ -227,7 +244,7 @@ class ProfileScreen extends StatelessWidget {
             text: "Get Help",
             svgSrc: "assets/icons/Help.svg",
             press: () {
-              _showComingSoon(context, "Support chat coming soon.");
+              Navigator.pushNamed(context, getHelpScreenRoute);
             },
             isShowDivider: false,
           ),

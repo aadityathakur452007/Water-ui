@@ -35,6 +35,7 @@
 
 | ID | Date | Decision | Status | Affects |
 |----|------|----------|--------|---------|
+| ADR-028 | 2026-09-27 | Experience pass: custom-day schedules, vendor 8-KPI redesign + settings, order photos, cross-sell, water nav, account/help | Accepted | apps/user user+vendor screens, subscription days, backend days column |
 | ADR-027 | 2026-09-26 | Shodasha lineup: 20L refill 28 + 20L jar 30 + 1L coming-soon; login logo | Accepted | product_model, demo_seed, categories, auth headers, backend seeds, tests |
 | ADR-026 | 2026-09-26 | Shodasha branding: logo/photos, OS names, generated launcher icons | Accepted | apps/user assets+manifests+seeds, flutter_launcher_icons dev-dep |
 | ADR-025 | 2026-09-25 | Vendor death-screen fix (UiTheme hoist), shared demo store, vendor customer identity, Workers/D1 adapters | Accepted | apps/user theme+config+vendor, backend app/index/worker, wrangler, docs/ |
@@ -81,6 +82,16 @@
 ---
 
 ## Decision Entries
+
+### ADR-028: Experience pass — schedules, vendor redesign, photos, cross-sell, settings
+- **Date**: 2026-09-27
+- **Status**: Accepted
+- **Context**: Custom schedule had no day picker/summary; vendor dashboard lacked logistics KPIs and settings; order rows had no photos; no cross-sell; bottom nav used stock SVGs; account menu had dead tiles and no help content.
+- **Options considered**: New KPI endpoints (rejected — client-computed from full vendor orders list); server slots/settings endpoints (rejected — none exist; device-local labeled honestly); push for vendor→user sync (rejected — shared store/DB + refresh stands).
+- **Decision**: Mon–Sun picker + summary + `days` column end-to-end (backend validates, D1 migrated); 8-KPI vendor dashboard + thumbnail/badge orders + Settings tab; order thumbnails via catalog lookup with placeholder fallback; refill↔jar cross-sell on detail + success; Material water-drop nav; editable profile + Help/FAQ screen.
+- **Why**: Schedule visibility was the core complaint — picker + summary + vendor-visible days closes it; extended KPIs derive from data already fetched; settings stay honest about locality.
+- **Consequences**: Test suite 49/49 (2 new files ×10); `days` invalid → 400; vendor settings do not sync across devices until server endpoints land.
+- **Affects**: `subscription_config/cart/orders/detail/success/entry_point/profile/user_info/help` screens, vendor screens + settings, `subscription_model`, backend days, 2 new test files
 
 ### ADR-027: Shodasha lineup — refill 28, jar 30, 1L coming-soon, logo login
 - **Date**: 2026-09-26

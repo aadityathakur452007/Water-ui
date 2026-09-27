@@ -314,7 +314,7 @@ export function createApp(db: DbClient, auth: AuthHasher) {
 
   async function vendorSubscriptions(c: Ctx) {
     const rows = await db.all(
-      `SELECT s.id, s.product_id, s.quantity, s.frequency, s.start_date, s.delivery_time, s.status, s.next_delivery,
+      `SELECT s.id, s.product_id, s.quantity, s.frequency, s.start_date, s.delivery_time, s.status, s.next_delivery, s.days,
               p.name AS product_name
        FROM subscriptions s LEFT JOIN products p ON p.id = s.product_id ORDER BY s.id DESC`
     );
@@ -323,6 +323,7 @@ export function createApp(db: DbClient, auth: AuthHasher) {
       product: { id: s.product_id, name: s.product_name },
       quantity: s.quantity, frequency: s.frequency, start_date: s.start_date,
       delivery_time: s.delivery_time, status: s.status, next_delivery: s.next_delivery ?? null,
+      days: s.days ?? null,
     })));
   }
 
@@ -347,7 +348,26 @@ export function createApp(db: DbClient, auth: AuthHasher) {
       status: s.status,
       next_delivery: s.next_delivery ?? null,
       skip_next: Boolean(s.skip_next ?? 0),
+      days: s.days ?? null,
     };
+  }
+
+  // Optional `days` wire value: comma-separated short day tokens
+  // ("Mon,Wed,Fri"). Returns the normalized string, null when absent/empty.
+  function parseDays(raw: unknown): string | null | undefined {
+    if (raw === undefined || raw === null) return undefined;
+    const s = String(raw).trim();
+    if (s === "") return null;
+    const valid = new Set(["mon", "tue", "wed", "thu", "fri", "sat", "sun"]);
+    const parts = s.split(",").map((p) => p.trim()).filter(Boolean);
+    if (parts.length === 0) return null;
+    const norm: string[] = [];
+    for (const p of parts) {
+      const low = p.toLowerCase();
+      if (!valid.has(low)) return undefined;
+      norm.push(low[0].toUpperCase() + low.slice(1));
+    }
+    return norm.join(",");
   }
 
   const SUB_SELECT = `SELECT s.*, p.name AS product_name FROM subscriptions s
@@ -379,9 +399,13 @@ export function createApp(db: DbClient, auth: AuthHasher) {
     if (!startDate || !deliveryTime) {
       return c.json(err("VALIDATION", "startDate and deliveryTime are required"), 400);
     }
+    const days = parseDays(body?.days);
+    if (days === undefined && body?.days !== undefined) {
+      return c.json(err("VALIDATION", "days must be comma-separated day tokens like Mon,Wed,Fri"), 400);
+    }
     const r = await db.run(
-      "INSERT INTO subscriptions (user_id, product_id, quantity, frequency, start_date, delivery_time, status, next_delivery, skip_next) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, 0)",
-      user.id, productId, quantity, frequency, startDate, deliveryTime, startDate
+      "INSERT INTO subscriptions (user_id, product_id, quantity, frequency, start_date, delivery_time, status, next_delivery, skip_next, days) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, 0, ?)",
+      user.id, productId, quantity, frequency, startDate, deliveryTime, startDate, days ?? null
     );
     const s = (await db.one(`${SUB_SELECT} WHERE s.id = ?`, Number(r.lastInsertRowid))) as Row;
     return c.json(toSub(s), 201);
@@ -426,6 +450,14 @@ export function createApp(db: DbClient, auth: AuthHasher) {
     if (body?.skipNext !== undefined) {
       patch.push("skip_next = ?");
       params.push(body.skipNext ? 1 : 0);
+    }
+    if (body?.days !== undefined) {
+      const days = parseDays(body.days);
+      if (days === undefined) {
+        return c.json(err("VALIDATION", "days must be comma-separated day tokens like Mon,Wed,Fri"), 400);
+      }
+      patch.push("days = ?");
+      params.push(days);
     }
     if (patch.length === 0) {
       return c.json(err("VALIDATION", "nothing to update"), 400);

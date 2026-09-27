@@ -5,16 +5,155 @@ import 'package:shop/services/session_store.dart';
 
 /// Account details from the signed-in session ([SessionStore]).
 /// The backend exposes no profile endpoint, so this screen shows
-/// exactly what the session holds — nothing invented.
-class UserInfoScreen extends StatelessWidget {
+/// exactly what the session holds — nothing invented. Name and phone
+/// are editable here and persist on this device via shared_preferences.
+class UserInfoScreen extends StatefulWidget {
   const UserInfoScreen({super.key});
+
+  @override
+  State<UserInfoScreen> createState() => _UserInfoScreenState();
+}
+
+class _UserInfoScreenState extends State<UserInfoScreen> {
+  Future<Map<String, dynamic>?>? _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _reload();
+  }
+
+  void _reload() =>
+      setState(() => _future = const SessionStore().readUser());
+
+  Future<void> _openEdit(Map<String, dynamic> user) async {
+    final formKey = GlobalKey<FormState>();
+    final name = TextEditingController(
+        text: user['name']?.toString() ?? '');
+    final phone = TextEditingController(
+        text: user['phone']?.toString() ?? '');
+    bool saving = false;
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheet) => Padding(
+          padding: EdgeInsets.only(
+            left: defaultPadding * 1.5,
+            right: defaultPadding * 1.5,
+            top: defaultPadding * 1.5,
+            bottom: MediaQuery.of(sheetContext).viewInsets.bottom +
+                defaultPadding * 1.5,
+          ),
+          child: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Edit profile",
+                  style: Theme.of(sheetContext)
+                      .textTheme
+                      .titleSmall!
+                      .copyWith(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: defaultPadding),
+                TextFormField(
+                  controller: name,
+                  textInputAction: TextInputAction.next,
+                  decoration:
+                      const InputDecoration(labelText: "Name"),
+                  validator: (v) => v == null || v.trim().isEmpty
+                      ? "Name is required"
+                      : null,
+                ),
+                const SizedBox(height: defaultPadding / 2),
+                TextFormField(
+                  controller: phone,
+                  textInputAction: TextInputAction.done,
+                  keyboardType: TextInputType.phone,
+                  decoration:
+                      const InputDecoration(labelText: "Phone"),
+                  validator: (v) {
+                    final digits =
+                        v?.replaceAll(RegExp(r'[^0-9]'), '') ?? '';
+                    if (digits.isEmpty) return "Phone is required";
+                    if (digits.length < 7) {
+                      return "Enter a valid phone number";
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: defaultPadding),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: saving
+                        ? null
+                        : () async {
+                            if (!formKey.currentState!.validate()) {
+                              return;
+                            }
+                            setSheet(() => saving = true);
+                            await const SessionStore().updateUserFields({
+                              'name': name.text.trim(),
+                              'phone': phone.text.trim(),
+                            });
+                            if (mounted) Navigator.pop(context);
+                            _reload();
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content:
+                                        Text("Profile updated.")),
+                              );
+                            }
+                          },
+                    child: saving
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Text("Save"),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    name.dispose();
+    phone.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Profile")),
+      appBar: AppBar(
+        title: const Text("Profile"),
+        actions: [
+          FutureBuilder<Map<String, dynamic>?>(
+            future: _future,
+            builder: (context, snap) {
+              final user = snap.data;
+              if (user == null) return const SizedBox.shrink();
+              return IconButton(
+                tooltip: "Edit profile",
+                icon: const Icon(Icons.edit_outlined),
+                onPressed: () => _openEdit(user),
+              );
+            },
+          ),
+        ],
+      ),
       body: FutureBuilder<Map<String, dynamic>?>(
-        future: const SessionStore().readUser(),
+        future: _future,
         builder: (context, snap) {
           if (snap.connectionState == ConnectionState.waiting) {
             return const Center(
@@ -96,6 +235,10 @@ class UserInfoScreen extends StatelessWidget {
                           .titleLarge!
                           .copyWith(fontWeight: FontWeight.w600),
                     ),
+                  ),
+                  OutlinedButton(
+                    onPressed: () => _openEdit(user),
+                    child: const Text("Edit"),
                   ),
                 ],
               ),

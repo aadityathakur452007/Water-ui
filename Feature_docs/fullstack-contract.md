@@ -54,6 +54,7 @@ label,line,city)`, `orders(id,user_id,address_id,type,status,total,
 slot,created_at)`, `order_items(order_id,product_id,name,qty,price)`,
 `subscriptions(id,user_id,product_id,quantity,frequency,start_date,
 delivery_time,status,next_delivery)`.
+- Subscriptions carry an optional `days` TEXT (wire key `days`, e.g. "Mon,Wed,Fri").
 
 ## Errors (uniform)
 `{error: {code, message}}` + HTTP status. Codes: `VALIDATION`,

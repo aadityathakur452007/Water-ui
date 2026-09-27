@@ -22,18 +22,6 @@ class _EntryPointState extends State<EntryPoint> {
 
   @override
   Widget build(BuildContext context) {
-    SvgPicture svgIcon(String src, {Color? color}) {
-      return SvgPicture.asset(
-        src,
-        height: 24,
-        colorFilter: ColorFilter.mode(
-            color ??
-                Theme.of(context).iconTheme.color!.withValues(
-                    alpha: Theme.of(context).brightness == Brightness.dark ? 0.3 : 1),
-            BlendMode.srcIn),
-      );
-    }
-
     return Scaffold(
       appBar: AppBar(
         // pinned: true,
@@ -108,28 +96,25 @@ class _EntryPointState extends State<EntryPoint> {
           selectedFontSize: 12,
           selectedItemColor: primaryColor,
           unselectedItemColor: blackColor60,
-          items: [
+          items: const [
             BottomNavigationBarItem(
-              icon: svgIcon("assets/icons/Shop.svg"),
-              activeIcon: svgIcon("assets/icons/Shop.svg", color: primaryColor),
+              icon: Icon(Icons.water_drop_outlined),
+              activeIcon: Icon(Icons.water_drop),
               label: "Home",
             ),
             BottomNavigationBarItem(
-              icon: svgIcon("assets/icons/Order.svg"),
-              activeIcon:
-                  svgIcon("assets/icons/Order.svg", color: primaryColor),
+              icon: Icon(Icons.receipt_long_outlined),
+              activeIcon: Icon(Icons.receipt_long),
               label: "Orders",
             ),
             BottomNavigationBarItem(
-              icon: svgIcon("assets/icons/Category.svg"),
-              activeIcon:
-                  svgIcon("assets/icons/Category.svg", color: primaryColor),
+              icon: Icon(Icons.shopping_bag_outlined),
+              activeIcon: Icon(Icons.shopping_bag),
               label: "Shop",
             ),
             BottomNavigationBarItem(
-              icon: svgIcon("assets/icons/Profile.svg"),
-              activeIcon:
-                  svgIcon("assets/icons/Profile.svg", color: primaryColor),
+              icon: Icon(Icons.person_outline),
+              activeIcon: Icon(Icons.person),
               label: "Account",
             ),
           ],

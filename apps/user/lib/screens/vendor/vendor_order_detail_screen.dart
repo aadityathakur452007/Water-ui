@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../components/network_image_with_loader.dart';
+import '../../models/cart_model.dart';
+import '../../repositories/product_repository.dart';
 import '../../route/route_constants.dart';
 import '../../services/api_client.dart';
 import '../../services/auth_service.dart';
@@ -9,6 +12,7 @@ import 'vendor_order.dart';
 /// Order detail + status advance. Only valid contract transitions are
 /// offered: next step forward, plus cancel (any non-final state).
 /// After PATCH the list refreshes (returns true to the caller).
+/// Totals already include the server-owned ₹10 fee (labeled, not re-added).
 class VendorOrderDetailScreen extends StatefulWidget {
   const VendorOrderDetailScreen(
       {super.key, required this.service, required this.initial});
@@ -26,6 +30,7 @@ class _VendorOrderDetailScreenState
   late VendorOrder _order;
   bool _busy = false;
   String? _error;
+  final _products = const ProductRepository();
 
   @override
   void initState() {
@@ -73,7 +78,8 @@ class _VendorOrderDetailScreenState
       await widget.service.updateStatus(_order.id, status);
       if (!mounted) return;
       // Pop the new status; the caller shows the SnackBar (its context
-      // is still mounted, ours is not).
+      // is still mounted, ours is not). The shared store/DB is the sync
+      // path back to the user app (refresh-on-pop) — no push channel.
       Navigator.of(context).pop(status);
     } on AppException catch (e) {
       final expired =
@@ -99,6 +105,13 @@ class _VendorOrderDetailScreenState
   @override
   Widget build(BuildContext context) {
     final next = nextStatus(_order.status);
+    // Days are not on orders today — show only when the backend provides
+    // them (or a frequency for regular orders); otherwise show nothing.
+    final daysLine = _order.daysLabel.isNotEmpty
+        ? _order.daysLabel
+        : _order.frequency.isNotEmpty
+            ? _order.frequency
+            : '';
     return Scaffold(
       appBar: AppBar(title: Text('Order #${_order.id}')),
       body: ListView(
@@ -116,6 +129,13 @@ class _VendorOrderDetailScreenState
                   const SizedBox(height: 4),
                   Text(
                       'Type: ${_display(_order.type)} \u00B7 Slot: ${_order.slot}'),
+                  if (daysLine.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text('Days: $daysLine',
+                        style: const TextStyle(
+                            color: Color(0xFF1B7BD6),
+                            fontWeight: FontWeight.w500)),
+                  ],
                   if (_order.hasCustomer) ...[
                     const SizedBox(height: 8),
                     const Text('Customer',
@@ -148,14 +168,38 @@ class _VendorOrderDetailScreenState
                   const SizedBox(height: 8),
                   for (final item in _order.items)
                     Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 2),
-                      child: Text(
-                          '${item.name} \u00D7${item.qty} \u2014 \u20B9${item.price}'),
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 40,
+                            height: 40,
+                            child: item.productId.isEmpty
+                                ? const Icon(Icons.water_drop,
+                                    color: Color(0xFF1B7BD6))
+                                : NetworkImageWithLoader(
+                                    _products
+                                        .byId(item.productId)
+                                        .image,
+                                    radius: 8),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                                '${item.qty} \u00D7 ${item.name}'),
+                          ),
+                          Text(inr(item.price.toDouble())),
+                        ],
+                      ),
                     ),
                   const Divider(),
-                  Text('Total: \u20B9${_order.total}',
+                  Text('Total: ${inr(_order.total.toDouble())}',
                       style:
                           const TextStyle(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 2),
+                  Text('incl. ${inr(10)} delivery fee',
+                      style:
+                          const TextStyle(color: Color(0xFF6E6E73))),
                 ],
               ),
             ),

@@ -5,6 +5,12 @@ import '../models/subscription_model.dart';
 import '../services/api_client.dart';
 import '../services/session_store.dart';
 
+/// Defensive read of the `days` wire key (contract: backend stores and
+/// returns it; the `Subscription.days` model field is owned by the
+/// parallel agent). Returns '' when absent so old payloads never throw.
+String subscriptionDaysFromJson(Map<String, dynamic> json) =>
+    json['days']?.toString() ?? '';
+
 /// Subscription source for the Home "active delivery" card and
 /// subscription management.
 ///
@@ -65,6 +71,7 @@ class SubscriptionRepository {
     required Frequency frequency,
     required String startDate,
     required String deliveryTime,
+    String? days,
     ApiClient? client,
   }) {
     return createRemoteRaw(
@@ -73,6 +80,7 @@ class SubscriptionRepository {
       frequency: frequencyToWire(frequency),
       startDate: startDate,
       deliveryTime: deliveryTime,
+      days: days,
       client: client,
     );
   }
@@ -84,6 +92,7 @@ class SubscriptionRepository {
     required String frequency,
     required String startDate,
     required String deliveryTime,
+    String? days,
     ApiClient? client,
   }) async {
     final api = client ?? await _remote();
@@ -93,6 +102,7 @@ class SubscriptionRepository {
       'frequency': frequency,
       'startDate': startDate,
       'deliveryTime': deliveryTime,
+      if (days != null && days.isNotEmpty) 'days': days,
     });
     return Subscription.fromJson(
         Map<String, dynamic>.from(body as Map));

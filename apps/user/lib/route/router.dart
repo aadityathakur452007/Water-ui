@@ -185,6 +185,10 @@ Route<dynamic> generateRoute(RouteSettings settings) {
     //   return MaterialPageRoute(
     //     builder: (context) => const GetHelpScreen(),
     //   );
+    case getHelpScreenRoute:
+      return MaterialPageRoute(
+        builder: (context) => const HelpScreen(),
+      );
     // case chatScreenRoute:
     //   return MaterialPageRoute(
     //     builder: (context) => const ChatScreen(),

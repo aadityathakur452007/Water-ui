@@ -24,8 +24,7 @@ class SessionStore {
     return prefs.getString(_tokenKey);
   }
 
-  Future<Map<String, dynamic>?> readUser() async {
-    final prefs = await SharedPreferences.getInstance();
+  Future<Map<String, dynamic>?> readUser() async {    final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_userKey);
     if (raw == null || raw.isEmpty) return null;
     try {
@@ -42,5 +41,16 @@ class SessionStore {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
     await prefs.remove(_userKey);
+  }
+
+  /// Merges [fields] (e.g. name/phone from the profile edit sheet) into
+  /// the stored user map so the header and user-info screen reflect them.
+  Future<void> updateUserFields(Map<String, String> fields) async {
+    final prefs = await SharedPreferences.getInstance();
+    final current = await readUser() ?? <String, dynamic>{};
+    for (final entry in fields.entries) {
+      current[entry.key] = entry.value;
+    }
+    await prefs.setString(_userKey, jsonEncode(current));
   }
 }
