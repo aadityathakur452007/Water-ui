@@ -126,9 +126,16 @@ class _LoginScreenState extends State<LoginScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            Image.asset(
-              "assets/images/login_dark.png",
-              fit: BoxFit.cover,
+            Padding(
+              padding: EdgeInsets.only(
+                top: size.height * 0.08,
+                bottom: defaultPadding,
+              ),
+              child: Image.asset(
+                "assets/images/shodasha_logo.png",
+                height: size.height * 0.22,
+                fit: BoxFit.contain,
+              ),
             ),
             Padding(
               padding: const EdgeInsets.all(defaultPadding),

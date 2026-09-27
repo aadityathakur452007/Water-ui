@@ -28,14 +28,14 @@ void main() {
   test('vendor subscription parses nested product + humanized frequency',
       () {
     final s = VendorSubscription.fromJson({
-      'product': {'id': 'wd-20l', 'name': '20L Drinking Water Jar'},
+      'product': {'id': 'wd-20l-jar', 'name': '20L Jar with Container'},
       'quantity': 2,
       'frequency': 'every_day',
       'status': 'active',
       'next_delivery': 'Tomorrow • 8:00 AM',
     });
-    expect(s.productId, 'wd-20l');
-    expect(s.productName, '20L Drinking Water Jar');
+    expect(s.productId, 'wd-20l-jar');
+    expect(s.productName, '20L Jar with Container');
     expect(s.frequency, 'Every day');
   });
 

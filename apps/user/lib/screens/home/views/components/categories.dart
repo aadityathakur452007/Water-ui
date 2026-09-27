@@ -18,11 +18,9 @@ class CategoryModel {
 
 List<CategoryModel> demoCategories = [
   CategoryModel(name: "All"),
+  CategoryModel(name: "20L Refill", svgSrc: "assets/icons/water_jar.svg"),
   CategoryModel(name: "20L Jar", svgSrc: "assets/icons/water_jar.svg"),
-  CategoryModel(name: "15L Can", svgSrc: "assets/icons/water_jar.svg"),
-  CategoryModel(name: "10L Can", svgSrc: "assets/icons/water_jar.svg"),
   CategoryModel(name: "1L Bottle", svgSrc: "assets/icons/water_bottle.svg"),
-  CategoryModel(name: "500ml Bottle", svgSrc: "assets/icons/water_bottle.svg"),
 ];
 
 /// Search query each chip maps to. "All" keeps the empty query

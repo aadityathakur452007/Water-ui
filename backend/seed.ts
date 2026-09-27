@@ -14,23 +14,20 @@ export const VENDOR_PHONE = "9000000001";
 export const VENDOR_PASSWORD = "Vendor@123";
 
 const PRODUCTS = [
-  { id: "wd-20l", name: "20L Drinking Water Jar", capacity: "20 Litres", unit: "jar", container: "Reusable Water Jar", water_type: "Drinking Water", price: 60, image: "assets/images/jar_20l.jpg" },
-  { id: "wd-15l", name: "15L Drinking Water Can", capacity: "15 Litres", unit: "can", container: "Reusable Water Can", water_type: "Drinking Water", price: 50, image: "assets/images/jar_20l.jpg" },
-  { id: "wd-10l", name: "10L Drinking Water Can", capacity: "10 Litres", unit: "can", container: "Reusable Water Can", water_type: "Drinking Water", price: 40, image: "assets/images/jar_20l.jpg" },
-  { id: "wd-1l-12", name: "1L Bottles · Pack of 12", capacity: "12 × 1 Litre", unit: "pack", container: "PET Bottles", water_type: "Drinking Water", price: 120, image: "assets/images/bottle_1l.png" },
-  { id: "wd-500ml-12", name: "500ml Bottles · Pack of 12", capacity: "12 × 500 ml", unit: "pack", container: "PET Bottles", water_type: "Drinking Water", price: 90, image: "assets/images/bottle_1l.png" },
-  { id: "wd-5l", name: "5L Drinking Water Can", capacity: "5 Litres", unit: "can", container: "Reusable Water Can", water_type: "Drinking Water", price: 35, image: "assets/images/jar_20l.jpg" },
+  { id: "wd-20l-refill", name: "20L Water Refill (Own Container)", capacity: "20 Litres", unit: "refill", container: "Your Own Container", water_type: "Drinking Water", price: 28, image: "assets/images/jar_20l.jpg", available: 1 },
+  { id: "wd-20l-jar", name: "20L Jar with Container", capacity: "20 Litres", unit: "jar", container: "Jar with Tap", water_type: "Drinking Water", price: 30, image: "assets/images/jar_20l.jpg", available: 1 },
+  { id: "wd-1l", name: "1L Water Bottle", capacity: "1 Litre", unit: "bottle", container: "PET Bottle", water_type: "Drinking Water", price: 0, image: "assets/images/bottle_1l.png", available: 0 },
 ];
 
 export async function seedIfEmpty(db: Database): Promise<void> {
   const pCount = (db.query("SELECT COUNT(*) AS n FROM products").get() as any).n as number;
   if (pCount === 0) {
     const insertProduct = db.query(
-      "INSERT INTO products (id, name, capacity, unit, container, water_type, price, image, available) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)"
+      "INSERT INTO products (id, name, capacity, unit, container, water_type, price, image, available) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
     );
     const insertAll = db.transaction(() => {
       for (const p of PRODUCTS) {
-        insertProduct.run(p.id, p.name, p.capacity, p.unit, p.container, p.water_type, p.price, p.image);
+        insertProduct.run(p.id, p.name, p.capacity, p.unit, p.container, p.water_type, p.price, p.image, p.available);
       }
     });
     insertAll();

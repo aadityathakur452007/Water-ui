@@ -15,10 +15,10 @@ void main() {
     final created = await orders.createOrder(
       items: const [
         OrderItem(
-          productId: 'wd-20l',
-          name: '20L Drinking Water Jar',
+          productId: 'wd-20l-refill',
+          name: '20L Water Refill (Own Container)',
           qty: 1,
-          price: 60,
+          price: 28,
         ),
       ],
       slot: 'Today • 8:00 AM',
@@ -26,7 +26,7 @@ void main() {
     );
     expect(created.id, startsWith('WD-'));
     expect(created.status, OrderStatus.scheduled);
-    expect(created.totalAmount, 60 + Cart.deliveryFee);
+    expect(created.totalAmount, 28 + Cart.deliveryFee);
 
     final after = await orders.fetchOrders();
     expect(after.length, before.length + 1);
@@ -37,10 +37,10 @@ void main() {
     final created = await orders.createOrder(
       items: const [
         OrderItem(
-          productId: 'wd-10l',
-          name: '10L Drinking Water Can',
+          productId: 'wd-20l-jar',
+          name: '20L Jar with Container',
           qty: 1,
-          price: 40,
+          price: 30,
         ),
       ],
       slot: 'Today • 8:00 AM',
@@ -58,10 +58,10 @@ void main() {
       id: 'WD-00124',
       items: [
         OrderItem(
-          productId: 'wd-20l',
-          name: '20L Drinking Water Jar',
+          productId: 'wd-20l-refill',
+          name: '20L Water Refill (Own Container)',
           qty: 2,
-          price: 60,
+          price: 28,
         ),
       ],
       address: defaultAddress,

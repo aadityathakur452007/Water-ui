@@ -35,6 +35,7 @@
 
 | ID | Date | Decision | Status | Affects |
 |----|------|----------|--------|---------|
+| ADR-027 | 2026-09-26 | Shodasha lineup: 20L refill 28 + 20L jar 30 + 1L coming-soon; login logo | Accepted | product_model, demo_seed, categories, auth headers, backend seeds, tests |
 | ADR-026 | 2026-09-26 | Shodasha branding: logo/photos, OS names, generated launcher icons | Accepted | apps/user assets+manifests+seeds, flutter_launcher_icons dev-dep |
 | ADR-025 | 2026-09-25 | Vendor death-screen fix (UiTheme hoist), shared demo store, vendor customer identity, Workers/D1 adapters | Accepted | apps/user theme+config+vendor, backend app/index/worker, wrangler, docs/ |
 | ADR-021 | 2026-09-25 | Purchase-flow honesty fixes: demo order-book, addressId checkout, NETWORK-only fallbacks, status granularity, displayLabel | Accepted | apps/user (commerce scope), test/purchase_fixes_test.dart |
@@ -80,6 +81,16 @@
 ---
 
 ## Decision Entries
+
+### ADR-027: Shodasha lineup — refill 28, jar 30, 1L coming-soon, logo login
+- **Date**: 2026-09-26
+- **Status**: Accepted
+- **Context**: User cut the catalog to two 20L types (bare refill vs with-container) + coming-soon 1L, and wanted shopping illustrations off the auth screens.
+- **Options considered**: Tentative 1L price (rejected — no announced price; price 0 + unavailable flag); hiding the 1L tile (rejected — user wants visible coming-soon); keeping old demo rows (rejected — "remove everything").
+- **Decision**: 3-item catalog in app + both backend seeds (1L `available=0`); categories/discover/search follow; `ProductCard.available=false` shows "Coming soon", no stepper/price; login/signup headers show Shodasha logo; stale default ids + index lists fixed.
+- **Why**: Data-only change plus one small card state; backend seeds keep live parity; no contract change (prices not pinned).
+- **Consequences**: Old product ids (`wd-20l`, `wd-15l`, …) no longer resolve — `byId` falls back to first item; existing docker volumes keep old rows until `down -v` reseed.
+- **Affects**: `product_model.dart`, `category_model.dart`, home/discover categories, `demo_seed.dart`, auth headers, `product_card.dart`, backend seeds, 3 test files
 
 ### ADR-026: Shodasha branding — logo, photos, OS names, launcher icons
 - **Date**: 2026-09-26

@@ -93,7 +93,7 @@ class _CartScreenState extends State<CartScreen> {
       // Fresh flow from order-type / subscription config.
       final map = Map<String, dynamic>.from(args);
       final product =
-          _products.byId(map['productId'] as String? ?? "wd-20l");
+          _products.byId(map['productId'] as String? ?? "wd-20l-refill");
       _items = [CartItem(product: product, qty: map['qty'] as int? ?? 1)];
       if (map['orderType'] == 'regular') {
         _orderType = OrderType.regular;
@@ -105,7 +105,7 @@ class _CartScreenState extends State<CartScreen> {
       }
     } else {
       _items = [
-        CartItem(product: _products.byId("wd-20l"), qty: 2),
+          CartItem(product: _products.byId("wd-20l-refill"), qty: 2),
       ];
     }
   }

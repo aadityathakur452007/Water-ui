@@ -279,7 +279,7 @@ Route<dynamic> generateRoute(RouteSettings settings) {
           final args =
               settings.arguments as Map<String, dynamic>? ?? const {};
           return OrderTypeScreen(
-            productId: args['productId'] as String? ?? "wd-20l",
+            productId: args['productId'] as String? ?? "wd-20l-refill",
             qty: args['qty'] as int? ?? 1,
           );
         },
@@ -290,7 +290,7 @@ Route<dynamic> generateRoute(RouteSettings settings) {
           final args =
               settings.arguments as Map<String, dynamic>? ?? const {};
           return SubscriptionConfigScreen(
-            productId: args['productId'] as String? ?? "wd-20l",
+            productId: args['productId'] as String? ?? "wd-20l-refill",
             qty: args['qty'] as int? ?? 1,
           );
         },

@@ -41,10 +41,10 @@ void main() {
     final created = await userRepo.createOrder(
       items: const [
         OrderItem(
-          productId: 'wd-20l',
-          name: '20L Drinking Water Jar',
+          productId: 'wd-20l-jar',
+          name: '20L Jar with Container',
           qty: 1,
-          price: 60,
+          price: 30,
         ),
       ],
       slot: 'Today • 8:00 AM',

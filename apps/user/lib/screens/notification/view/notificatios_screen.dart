@@ -18,7 +18,7 @@ const _notifications = [
   _WaterNotification("Out for delivery",
       "Your 2 × 20L water jars are out for delivery.", "8:05 AM"),
   _WaterNotification("Delivered",
-      "Your 10L water can was delivered. Enjoy!", "Yesterday"),
+      "Your 20L jar was delivered. Enjoy!", "Yesterday"),
   _WaterNotification("Upcoming recurring delivery",
       "Tomorrow • 8:00 AM: 2 × 20L Water Jar.", "Yesterday"),
   _WaterNotification("Payment confirmation",

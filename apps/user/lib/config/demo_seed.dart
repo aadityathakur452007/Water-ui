@@ -48,15 +48,15 @@ const demoOrders = [
     'id': 'WD-00124',
     'type': 'one-time',
     'status': 'scheduled',
-    'total': 130,
+    'total': 66,
     'slot': 'Tomorrow • 8:00 AM',
     'created_at': 'Today',
     'items': [
       {
-        'productId': 'wd-20l',
-        'name': '20L Drinking Water Jar',
+        'productId': 'wd-20l-refill',
+        'name': '20L Water Refill (Own Container)',
         'qty': 2,
-        'price': 60,
+        'price': 28,
       },
     ],
     'address': {
@@ -70,15 +70,15 @@ const demoOrders = [
     'id': 'WD-00119',
     'type': 'regular',
     'status': 'scheduled',
-    'total': 130,
+    'total': 70,
     'slot': 'Every Day • 8:00 AM',
     'created_at': '20 Sept',
     'items': [
       {
-        'productId': 'wd-20l',
-        'name': '20L Drinking Water Jar',
+        'productId': 'wd-20l-jar',
+        'name': '20L Jar with Container',
         'qty': 2,
-        'price': 60,
+        'price': 30,
       },
     ],
     'address': {
@@ -92,15 +92,15 @@ const demoOrders = [
     'id': 'WD-00122',
     'type': 'one-time',
     'status': 'preparing',
-    'total': 110,
+    'total': 40,
     'slot': 'Today • 12:00 PM',
     'created_at': 'Today',
     'items': [
       {
-        'productId': 'wd-1l-12',
-        'name': '1L Mineral Water Bottles (12-pack)',
+        'productId': 'wd-20l-jar',
+        'name': '20L Jar with Container',
         'qty': 1,
-        'price': 110,
+        'price': 30,
       },
     ],
     'address': {
@@ -114,21 +114,21 @@ const demoOrders = [
     'id': 'WD-00120',
     'type': 'one-time',
     'status': 'out_for_delivery',
-    'total': 159,
+    'total': 68,
     'slot': 'Today • 6:00 PM',
     'created_at': 'Today',
     'items': [
       {
-        'productId': 'wd-20l',
-        'name': '20L Drinking Water Jar',
+        'productId': 'wd-20l-refill',
+        'name': '20L Water Refill (Own Container)',
         'qty': 1,
-        'price': 60,
+        'price': 28,
       },
       {
-        'productId': 'dispenser-clean',
-        'name': 'Dispenser Cleaning Service',
+        'productId': 'wd-20l-jar',
+        'name': '20L Jar with Container',
         'qty': 1,
-        'price': 99,
+        'price': 30,
       },
     ],
     'address': {
@@ -142,15 +142,15 @@ const demoOrders = [
     'id': 'WD-00118',
     'type': 'one-time',
     'status': 'delivered',
-    'total': 180,
+    'total': 100,
     'slot': 'Today • 8:00 AM',
     'created_at': 'Today',
     'items': [
       {
-        'productId': 'wd-20l',
-        'name': '20L Drinking Water Jar',
+        'productId': 'wd-20l-jar',
+        'name': '20L Jar with Container',
         'qty': 3,
-        'price': 60,
+        'price': 30,
       },
     ],
     'address': {
@@ -164,15 +164,15 @@ const demoOrders = [
     'id': 'WD-00115',
     'type': 'regular',
     'status': 'delivered',
-    'total': 160,
+    'total': 66,
     'slot': 'Today • 9:30 AM',
     'created_at': 'Today',
     'items': [
       {
-        'productId': 'wd-5l',
-        'name': '5L Water Can',
-        'qty': 4,
-        'price': 40,
+        'productId': 'wd-20l-refill',
+        'name': '20L Water Refill (Own Container)',
+        'qty': 2,
+        'price': 28,
       },
     ],
     'address': {
@@ -186,15 +186,15 @@ const demoOrders = [
     'id': 'WD-00110',
     'type': 'one-time',
     'status': 'cancelled',
-    'total': 130,
+    'total': 70,
     'slot': 'Yesterday • 8:00 AM',
     'created_at': '19 Sept',
     'items': [
       {
-        'productId': 'wd-20l',
-        'name': '20L Drinking Water Jar',
+        'productId': 'wd-20l-jar',
+        'name': '20L Jar with Container',
         'qty': 2,
-        'price': 60,
+        'price': 30,
       },
     ],
     'address': {
@@ -208,15 +208,15 @@ const demoOrders = [
     'id': 'WD-00098',
     'type': 'one-time',
     'status': 'cancelled',
-    'total': 130,
+    'total': 40,
     'slot': '10 Sept • 8:00 AM',
     'created_at': '9 Sept • 9:40 AM',
     'items': [
       {
-        'productId': 'wd-1l-12',
-        'name': '1L Bottles · Pack of 12',
+        'productId': 'wd-20l-jar',
+        'name': '20L Jar with Container',
         'qty': 1,
-        'price': 120,
+        'price': 30,
       },
     ],
     'address': {
@@ -232,8 +232,8 @@ const demoOrders = [
 const demoUserSubscriptions = [
   {
     'id': 'SUB-042',
-    'product_id': 'wd-20l',
-    'product_name': '20L Drinking Water Jar',
+    'product_id': 'wd-20l-jar',
+    'product_name': '20L Jar with Container',
     'quantity': 2,
     'frequency': 'every_day',
     'start_date': '25 September 2026',
@@ -246,24 +246,24 @@ const demoUserSubscriptions = [
 // Vendor-shape subscriptions (parsed by `VendorSubscription.fromJson`).
 const demoVendorSubscriptions = [
   {
-    'product_id': 'wd-20l',
-    'product_name': '20L Drinking Water Jar',
+    'product_id': 'wd-20l-jar',
+    'product_name': '20L Jar with Container',
     'quantity': 2,
     'frequency': 'Every Day',
     'status': 'active',
     'next_delivery': 'Tomorrow • 8:00 AM',
   },
   {
-    'product_id': 'wd-1l-12',
-    'product_name': '1L Mineral Water Bottles (12-pack)',
+    'product_id': 'wd-20l-refill',
+    'product_name': '20L Water Refill (Own Container)',
     'quantity': 1,
     'frequency': 'Alternate Days',
     'status': 'active',
     'next_delivery': 'Today • 12:00 PM',
   },
   {
-    'product_id': 'wd-5l',
-    'product_name': '5L Water Can',
+    'product_id': 'wd-20l-refill',
+    'product_name': '20L Water Refill (Own Container)',
     'quantity': 1,
     'frequency': 'Once a Week',
     'status': 'paused',

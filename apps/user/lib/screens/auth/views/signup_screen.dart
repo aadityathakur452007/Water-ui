@@ -82,11 +82,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            Image.asset(
-              "assets/images/signUp_dark.png",
-              height: MediaQuery.of(context).size.height * 0.35,
-              width: double.infinity,
-              fit: BoxFit.cover,
+            Padding(
+              padding: EdgeInsets.only(
+                top: MediaQuery.of(context).size.height * 0.06,
+                bottom: defaultPadding,
+              ),
+              child: Image.asset(
+                "assets/images/shodasha_logo.png",
+                height: MediaQuery.of(context).size.height * 0.2,
+                fit: BoxFit.contain,
+              ),
             ),
             Padding(
               padding: const EdgeInsets.all(defaultPadding),

@@ -101,18 +101,20 @@ void main() {
     });
 
     test('capacity matches with and without space/case', () {
-      expect(products.search('20L').map((p) => p.id), contains('wd-20l'));
-      expect(products.search('20 L').map((p) => p.id), contains('wd-20l'));
-      expect(products.search('JAR').map((p) => p.id), contains('wd-20l'));
+      expect(products.search('20L').map((p) => p.id),
+          containsAll(['wd-20l-refill', 'wd-20l-jar']));
+      expect(products.search('20 L').map((p) => p.id),
+          contains('wd-20l-refill'));
+      expect(products.search('JAR').map((p) => p.id),
+          contains('wd-20l-jar'));
     });
 
     test('multi-word queries narrow (every word must match)', () {
       final both = products.search('20L jar');
-      expect(both.map((p) => p.id), contains('wd-20l'));
+      expect(both.map((p) => p.id), contains('wd-20l-jar'));
       expect(
           both.length, lessThanOrEqualTo(products.search('20L').length));
-      expect(products.search('bottle').map((p) => p.id),
-          containsAll(['wd-1l-12', 'wd-500ml-12']));
+      expect(products.search('bottle').map((p) => p.id), contains('wd-1l'));
     });
 
     test('unknown terms return empty, never throw', () {
@@ -121,8 +123,8 @@ void main() {
     });
 
     test('money stays in rupees', () {
-      expect(inr(130), '₹130');
-      expect(products.byId('wd-20l').priceLabel, '₹60');
+      expect(inr(70), '₹70');
+      expect(products.byId('wd-20l-jar').priceLabel, '₹30');
     });
   });
 }

@@ -112,6 +112,7 @@ class _WaterProductsState extends State<WaterProducts> {
                       priceAfetDiscount: product.priceAfetDiscount,
                       dicountpercent: product.dicountpercent,
                       showStepper: true,
+                      available: product.available,
                       quantity: qty,
                       onIncrement: () =>
                           setState(() => _qty[product.id] = qty + 1),

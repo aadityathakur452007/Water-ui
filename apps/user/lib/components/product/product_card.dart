@@ -18,6 +18,7 @@ class ProductCard extends StatelessWidget {
     this.quantity = 1,
     this.onIncrement,
     this.onDecrement,
+    this.available = true,
     required this.press,
   });
   final String image, brandName, title;
@@ -27,6 +28,7 @@ class ProductCard extends StatelessWidget {
   final bool showStepper;
   final int quantity;
   final VoidCallback? onIncrement, onDecrement;
+  final bool available;
   final VoidCallback press;
 
   @override
@@ -95,9 +97,26 @@ class ProductCard extends StatelessWidget {
                         .copyWith(fontSize: 12),
                   ),
                   const Spacer(),
-                  priceAfetDiscount != null
-                      ? Row(
-                          children: [
+                  if (!available)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: defaultPadding / 2, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).primaryColor,
+                        borderRadius: const BorderRadius.all(
+                            Radius.circular(defaultBorderRadious)),
+                      ),
+                      child: const Text(
+                        "Coming soon",
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500),
+                      ),
+                    )
+                  else if (priceAfetDiscount != null)
+                    Row(
+                      children: [
                             Text(
                               inr(priceAfetDiscount!),
                               style: const TextStyle(
@@ -120,7 +139,8 @@ class ProductCard extends StatelessWidget {
                             ),
                           ],
                         )
-                      : Text(
+                      else
+                        Text(
                           inr(price),
                           style: const TextStyle(
                             color: Color(0xFF31B0D8),
@@ -128,7 +148,7 @@ class ProductCard extends StatelessWidget {
                             fontSize: 12,
                           ),
                         ),
-                  if (showStepper) ...[
+                  if (showStepper && available) ...[
                     const SizedBox(height: 4),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,

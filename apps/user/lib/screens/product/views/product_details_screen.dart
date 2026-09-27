@@ -35,7 +35,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   void initState() {
     super.initState();
     product =
-        const ProductRepository().byId(widget.productId ?? "wd-20l");
+        const ProductRepository().byId(widget.productId ?? "wd-20l-refill");
   }
 
   @override

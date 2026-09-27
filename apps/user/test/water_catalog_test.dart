@@ -9,31 +9,30 @@ void main() {
   const orders = OrderRepository();
   const subs = SubscriptionRepository();
 
-  test('catalog has the 5 launch products with INR prices', () {
+  test('catalog has the Shodasha lineup with INR prices', () {
     final all = products.all();
-    expect(all.length, greaterThanOrEqualTo(5));
-    expect(
-      all.map((p) => p.id),
-      containsAll(['wd-20l', 'wd-15l', 'wd-10l', 'wd-1l-12', 'wd-500ml-12']),
-    );
-    expect(products.byId('wd-20l').price, 60);
-    expect(products.byId('wd-20l').priceLabel, '₹60');
+    expect(all.map((p) => p.id),
+        containsAll(['wd-20l-refill', 'wd-20l-jar', 'wd-1l']));
+    expect(products.byId('wd-20l-refill').price, 28);
+    expect(products.byId('wd-20l-refill').priceLabel, '₹28');
+    expect(products.byId('wd-20l-jar').price, 30);
+    expect(products.byId('wd-1l').available, isFalse);
   });
 
   test('search finds water by capacity and type words', () {
-    expect(products.search('20L').map((p) => p.id), contains('wd-20l'));
-    expect(products.search('bottle').map((p) => p.id),
-        containsAll(['wd-1l-12', 'wd-500ml-12']));
+    expect(products.search('20L').map((p) => p.id),
+        containsAll(['wd-20l-refill', 'wd-20l-jar']));
+    expect(products.search('bottle').map((p) => p.id), contains('wd-1l'));
     expect(products.search('').length, products.all().length);
   });
 
   test('cart totals add the ₹10 delivery fee', () {
     final cart = Cart([
-      CartItem(product: products.byId('wd-20l'), qty: 2),
+      CartItem(product: products.byId('wd-20l-jar'), qty: 2),
     ]);
-    expect(cart.subtotal, 120);
-    expect(cart.total, 130);
-    expect(inr(cart.total), '₹130');
+    expect(cart.subtotal, 60);
+    expect(cart.total, 70);
+    expect(inr(cart.total), '₹70');
   });
 
   test('ongoing and past orders exist with statuses', () {

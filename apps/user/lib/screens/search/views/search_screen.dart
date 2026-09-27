@@ -20,7 +20,7 @@ import 'package:shop/services/api_client.dart';
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key, this.initialQuery = ""});
 
-  /// Deep link from Shop categories (e.g. "20L Drinking Water Jar").
+  /// Deep link from Shop categories (e.g. "20L Jar with Container").
   final String initialQuery;
 
   @override
