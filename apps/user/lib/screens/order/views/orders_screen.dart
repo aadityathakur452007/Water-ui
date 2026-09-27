@@ -6,9 +6,12 @@ import 'package:shop/components/skleton/skelton.dart';
 import 'package:shop/constants.dart';
 import 'package:shop/models/cart_model.dart';
 import 'package:shop/models/order_model.dart';
+import 'package:shop/models/subscription_model.dart';
 import 'package:shop/repositories/order_repository.dart';
 import 'package:shop/repositories/product_repository.dart';
+import 'package:shop/repositories/subscription_repository.dart';
 import 'package:shop/route/route_constants.dart';
+import 'package:shop/screens/order/views/order_grouping.dart';
 import 'package:shop/services/api_client.dart';
 import 'package:shop/services/auth_service.dart';
 
@@ -47,8 +50,30 @@ class OrderItemThumbnail extends StatelessWidget {
   }
 }
 
+class _OrdersPageData {
+  const _OrdersPageData({
+    required this.active,
+    required this.delivered,
+    required this.cancelled,
+    required this.repeating,
+  });
+
+  final List<Order> active;
+  final List<Order> delivered;
+  final List<Order> cancelled;
+  final List<Subscription> repeating;
+}
+
 class OrdersScreen extends StatefulWidget {
-  const OrdersScreen({super.key});
+  const OrdersScreen(
+      {super.key, this.initialOpenOrderId, this.showPlacedToast = false});
+
+  /// Forwarded by EntryPoint when it consumes route args
+  /// `{tab, openOrderId, showPlacedToast}` (parallel owner implements
+  /// EntryPoint; this keeps the existing auto-open contract working
+  /// whether the id arrives via constructor or via ModalRoute args).
+  final String? initialOpenOrderId;
+  final bool showPlacedToast;
 
   @override
   State<OrdersScreen> createState() => _OrdersScreenState();
@@ -56,37 +81,49 @@ class OrdersScreen extends StatefulWidget {
 
 class _OrdersScreenState extends State<OrdersScreen> {
   final _repo = const OrderRepository();
-  Future<({List<Order> ongoing, List<Order> past})>? _future;
+  final _subsRepo = const SubscriptionRepository();
+  Future<_OrdersPageData>? _future;
   bool _offline = false;
   String? _openOrderId;
+  bool _showToast = false;
   bool _autoOpened = false;
+  bool _toastShown = false;
 
   @override
   void initState() {
     super.initState();
+    _openOrderId = widget.initialOpenOrderId;
+    _showToast = widget.showPlacedToast;
     _future = _load();
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Order id passed by the checkout success view (pushReplacement).
-    // Read from the route itself so no router change is needed.
-    if (_openOrderId == null) {
-      final args = ModalRoute.of(context)?.settings.arguments;
-      if (args is String && args.isNotEmpty) {
-        _openOrderId = args;
-      } else if (args is Map && args['orderId'] is String) {
-        _openOrderId = args['orderId'] as String;
+    // Order id passed by the checkout success view via entry_point args
+    // `{tab, openOrderId, showPlacedToast}` — when embedded in EntryPoint,
+    // ModalRoute here IS the entry_point route, so its arguments carry
+    // the forwarded id. Legacy `orderId` String/Map shapes still work.
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is String && args.isNotEmpty) {
+      _openOrderId ??= args;
+    } else if (args is Map) {
+      final map = Map<String, dynamic>.from(args);
+      if (_openOrderId == null) {
+        final id = map['openOrderId'] ?? map['orderId'];
+        if (id is String && id.isNotEmpty) _openOrderId = id;
+      }
+      if (!_showToast && map['showPlacedToast'] == true) {
+        _showToast = true;
       }
     }
   }
 
-  Future<({List<Order> ongoing, List<Order> past})> _load() async {
+  Future<_OrdersPageData> _load() async {
+    List<Order> all;
     try {
-      final remote = await _repo.fetchOrders();
+      all = await _repo.fetchOrders();
       if (mounted) setState(() => _offline = false);
-      return _split(remote);
     } on AppException catch (e) {
       if (e.code == 'UNAUTHENTICATED') {
         await const AuthService().handleUnauthorized();
@@ -101,9 +138,24 @@ class _OrdersScreenState extends State<OrdersScreen> {
       if (e.code != 'NETWORK') rethrow;
       if (mounted) setState(() => _offline = true);
       // Backend unreachable: show the bundled demo orders
-      // so the screen still demonstrates ongoing vs past.
-      return (ongoing: _repo.ongoing(), past: _repo.past());
+      // so the screen still demonstrates the grouped list.
+      all = [..._repo.ongoing(), ..._repo.past()];
     }
+    List<Subscription> subs = const [];
+    try {
+      subs = await _subsRepo.fetchSubscriptions();
+    } catch (_) {
+      // Repeating block is additive — orders still render when
+      // subscriptions fail.
+      subs = const [];
+    }
+    final grouped = splitGrouped(all);
+    return _OrdersPageData(
+      active: grouped.active,
+      delivered: grouped.delivered,
+      cancelled: grouped.cancelled,
+      repeating: subs,
+    );
   }
 
   Future<void> _refresh() async {
@@ -115,28 +167,21 @@ class _OrdersScreenState extends State<OrdersScreen> {
     }
   }
 
-  static ({List<Order> ongoing, List<Order> past}) _split(List<Order> all) {
-    final ongoing = <Order>[];
-    final past = <Order>[];
-    for (final o in all) {
-      if (o.status == OrderStatus.scheduled ||
-          o.status == OrderStatus.preparing ||
-          o.status == OrderStatus.outForDelivery ||
-          o.status == OrderStatus.active) {
-        ongoing.add(o);
-      } else {
-        past.add(o);
-      }
+  /// Auto-opens the detail sheet for the just-placed order + shows the
+  /// "Order placed" toast once. Runs after data arrives.
+  void _maybeAutoOpenAndToast(_OrdersPageData data) {
+    if (_showToast && !_toastShown) {
+      _toastShown = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Order placed — track it here')),
+        );
+      });
     }
-    return (ongoing: ongoing, past: past);
-  }
-
-  /// Auto-opens the detail sheet for the just-placed order (id passed
-  /// by the checkout success view). Runs once, after data arrives.
-  void _maybeAutoOpen(List<Order> all) {
     if (_autoOpened || _openOrderId == null) return;
     Order? match;
-    for (final o in all) {
+    for (final o in [...data.active, ...data.delivered, ...data.cancelled]) {
       if (o.id == _openOrderId) {
         match = o;
         break;
@@ -158,129 +203,153 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          title: Row(
-            children: [
-              const Text("Orders"),
-              if (_offline) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 2),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFEAF4FC),
-                    borderRadius:
-                        BorderRadius.all(Radius.circular(30)),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.wifi_off,
-                          size: 12, color: primaryColor),
-                      SizedBox(width: 4),
-                      Text(
-                        "Offline",
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          color: primaryColor,
-                        ),
-                      ),
-                    ],
-                  ),
+    return Scaffold(
+      appBar: AppBar(
+        title: Row(
+          children: [
+            const Text("Orders"),
+            if (_offline) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFEAF4FC),
+                  borderRadius: BorderRadius.all(Radius.circular(30)),
                 ),
-              ],
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.wifi_off, size: 12, color: primaryColor),
+                    SizedBox(width: 4),
+                    Text(
+                      "Offline",
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: primaryColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ],
-          ),
-          bottom: const TabBar(
-            tabs: [Tab(text: "ONGOING"), Tab(text: "PAST")],
-          ),
+          ],
         ),
-        body: FutureBuilder<({List<Order> ongoing, List<Order> past})>(
-          future: _future,
-          builder: (context, snap) {
-            if (snap.connectionState == ConnectionState.waiting) {
-              return ListView.builder(
-                padding: const EdgeInsets.all(defaultPadding),
-                itemCount: 3,
-                itemBuilder: (context, _) => const Padding(
-                  padding: EdgeInsets.only(bottom: defaultPadding),
-                  child: Skeleton(height: 120),
-                ),
-              );
-            }
-            if (snap.hasError) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(defaultPadding * 1.5),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        "Could not load orders.",
-                        style: Theme.of(context).textTheme.titleSmall,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "Check your connection and try again.",
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                      const SizedBox(height: defaultPadding),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size(0, 36),
-                        ),
-                        onPressed: () =>
-                            setState(() => _future = _load()),
-                        child: const Text("Retry"),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }
-            final data = snap.data ??
-                (ongoing: const <Order>[], past: const <Order>[]);
-            _maybeAutoOpen([...data.ongoing, ...data.past]);
-            return TabBarView(
-              children: [
-                RefreshIndicator(
-                  onRefresh: _refresh,
-                  child: _OrderList(
-                    orders: data.ongoing,
-                    onChanged: _refresh,
-                  ),
-                ),
-                RefreshIndicator(
-                  onRefresh: _refresh,
-                  child: _OrderList(
-                    orders: data.past,
-                    onChanged: _refresh,
-                  ),
-                ),
-              ],
+      ),
+      body: FutureBuilder<_OrdersPageData>(
+        future: _future,
+        builder: (context, snap) {
+          if (snap.connectionState == ConnectionState.waiting) {
+            return ListView.builder(
+              padding: const EdgeInsets.all(defaultPadding),
+              itemCount: 3,
+              itemBuilder: (context, _) => const Padding(
+                padding: EdgeInsets.only(bottom: defaultPadding),
+                child: Skeleton(height: 120),
+              ),
             );
-          },
-        ),
+          }
+          if (snap.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(defaultPadding * 1.5),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      "Could not load orders.",
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "Check your connection and try again.",
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: defaultPadding),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size(0, 36),
+                      ),
+                      onPressed: () => setState(() => _future = _load()),
+                      child: const Text("Retry"),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+          final data = snap.data ??
+              const _OrdersPageData(
+                active: [],
+                delivered: [],
+                cancelled: [],
+                repeating: [],
+              );
+          _maybeAutoOpenAndToast(data);
+          return RefreshIndicator(
+            onRefresh: _refresh,
+            child: _GroupedOrdersList(data: data, onChanged: _refresh),
+          );
+        },
       ),
     );
   }
 }
 
-class _OrderList extends StatefulWidget {
-  const _OrderList({required this.orders, required this.onChanged});
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({required this.title, required this.count});
 
-  final List<Order> orders;
+  final String title;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 12, 4, 8),
+      child: Row(
+        children: [
+          Text(
+            title,
+            style: Theme.of(context)
+                .textTheme
+                .titleSmall!
+                .copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: const BoxDecoration(
+              color: Color(0xFFEAF4FC),
+              borderRadius: BorderRadius.all(Radius.circular(30)),
+            ),
+            child: Text(
+              '$count',
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: primaryColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GroupedOrdersList extends StatefulWidget {
+  const _GroupedOrdersList({required this.data, required this.onChanged});
+
+  final _OrdersPageData data;
   final Future<void> Function() onChanged;
 
   @override
-  State<_OrderList> createState() => _OrderListState();
+  State<_GroupedOrdersList> createState() => _GroupedOrdersListState();
 }
 
-class _OrderListState extends State<_OrderList> {
+class _GroupedOrdersListState extends State<_GroupedOrdersList> {
   final _repo = const OrderRepository();
   final _busy = <String>{};
 
@@ -309,146 +378,431 @@ class _OrderListState extends State<_OrderList> {
     }
   }
 
+  void _openDetail(Order order) {
+    customModalBottomSheet(
+      context,
+      title: order.displayLabel,
+      showClose: true,
+      child: _OrderDetailSheet(order: order),
+    );
+  }
+
+  void _reorder(Order order) {
+    // Reuses the existing cart-seeding contract: CartScreen rebuilds
+    // lines from `Order.items` via the catalog (same as OrderAgain).
+    Navigator.pushNamed(context, cartScreenRoute, arguments: order);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final orders = widget.orders;
-    if (orders.isEmpty) {
+    final data = widget.data;
+    final allEmpty = data.active.isEmpty &&
+        data.delivered.isEmpty &&
+        data.cancelled.isEmpty &&
+        data.repeating.isEmpty;
+    if (allEmpty) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(defaultPadding),
         children: [
           const Center(child: Text("No orders yet")),
+          const SizedBox(height: 8),
+          const Center(
+            child: Text(
+              "Active, delivered and cancelled orders will appear here.",
+            ),
+          ),
           const SizedBox(height: defaultPadding),
           Center(
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(0, 36),
               ),
-              onPressed: () => Navigator.pushNamed(
-                  context, discoverScreenRoute),
+              onPressed: () =>
+                  Navigator.pushNamed(context, discoverScreenRoute),
               child: const Text("Order water"),
             ),
           ),
         ],
       );
     }
-    return ListView.builder(
+    return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(defaultPadding),
-      itemCount: orders.length,
-      itemBuilder: (context, index) {
-        final order = orders[index];
-        final cancelling = _busy.contains(order.id);
-        final firstProductId =
-            order.items.isEmpty ? '' : order.items.first.productId;
-        return Container(
-          margin: const EdgeInsets.only(bottom: defaultPadding),
-          padding: const EdgeInsets.all(defaultPadding),
-          decoration: BoxDecoration(
-            border: Border.all(color: Theme.of(context).dividerColor),
-            borderRadius: const BorderRadius.all(
-                Radius.circular(defaultBorderRadious)),
+      children: [
+        _SectionHeader(
+          title: 'Active & scheduled',
+          count: data.active.length + data.repeating.length,
+        ),
+        if (data.repeating.isNotEmpty) ...[
+          const Padding(
+            padding: EdgeInsets.fromLTRB(4, 0, 4, 6),
+            child: Text(
+              'Repeating',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: primaryColor,
+              ),
+            ),
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              OrderItemThumbnail(productId: firstProductId),
-              const SizedBox(width: defaultPadding / 2),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(order.displayLabel,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleSmall!
-                            .copyWith(fontWeight: FontWeight.w600)),
-                  ),
-                  const SizedBox(width: 8),
-                  _StatusDot(status: order.status),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(order.itemsSummary,
-                  style: Theme.of(context).textTheme.bodyLarge),
-              const SizedBox(height: 2),
-              Text(
-                "${inr(order.totalAmount)} · ${order.deliverySlot}",
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerRight,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (order.status == OrderStatus.scheduled)
-                      TextButton(
-                        onPressed:
-                            cancelling ? null : () => _cancel(order),
-                        child: Text(cancelling
-                            ? "Cancelling..."
-                            : "Cancel"),
-                      ),
-                    OutlinedButton(
-                      onPressed: () => customModalBottomSheet(
-                        context,
-                        title: order.displayLabel,
-                        showClose: true,
-                        child: _OrderDetailSheet(order: order),
-                      ),
-                      child: const Text("View"),
-                    ),
-                  ],
-                ),
-              ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+          for (final sub in data.repeating) _RepeatingRow(sub: sub),
+        ],
+        if (data.active.isEmpty && data.repeating.isEmpty)
+          const Padding(
+            padding: EdgeInsets.fromLTRB(4, 0, 4, 8),
+            child: Text("No active orders — you're all caught up."),
+          )
+        else
+          for (final order in data.active)
+            _OrderCard(
+              order: order,
+              cancelling: _busy.contains(order.id),
+              onCancel: () => _cancel(order),
+              onOpen: () => _openDetail(order),
+              onReorder: null,
+            ),
+        _SectionHeader(title: 'Delivered', count: data.delivered.length),
+        if (data.delivered.isEmpty)
+          const Padding(
+            padding: EdgeInsets.fromLTRB(4, 0, 4, 8),
+            child: Text("Delivered orders will appear here."),
+          )
+        else
+          for (final order in data.delivered)
+            _OrderCard(
+              order: order,
+              cancelling: false,
+              onCancel: null,
+              onOpen: () => _openDetail(order),
+              onReorder:
+                  canReorder(order) ? () => _reorder(order) : null,
+            ),
+        _SectionHeader(title: 'Cancelled', count: data.cancelled.length),
+        if (data.cancelled.isEmpty)
+          const Padding(
+            padding: EdgeInsets.fromLTRB(4, 0, 4, 8),
+            child: Text("No cancelled orders."),
+          )
+        else
+          for (final order in data.cancelled)
+            _OrderCard(
+              order: order,
+              cancelling: false,
+              onCancel: null,
+              onOpen: () => _openDetail(order),
+              onReorder:
+                  canReorder(order) ? () => _reorder(order) : null,
+            ),
+        const SizedBox(height: 8),
+      ],
     );
   }
 }
 
-class _StatusDot extends StatelessWidget {
-  const _StatusDot({required this.status});
+class _RepeatingRow extends StatelessWidget {
+  const _RepeatingRow({required this.sub});
+
+  final Subscription sub;
+
+  @override
+  Widget build(BuildContext context) {
+    final paused = sub.status == SubscriptionStatus.paused;
+    final status = subscriptionRowStatus(sub);
+    final muted = paused;
+    return GestureDetector(
+      onTap: () =>
+          Navigator.pushNamed(context, subscriptionsScreenRoute),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(defaultPadding),
+        decoration: BoxDecoration(
+          color: muted ? blackColor5 : Colors.white,
+          border: Border.all(color: Theme.of(context).dividerColor),
+          borderRadius: const BorderRadius.all(
+              Radius.circular(defaultBorderRadious)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            OrderItemThumbnail(productId: sub.productId, size: 48),
+            const SizedBox(width: defaultPadding / 2),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          sub.productName,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleSmall!
+                              .copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: muted ? blackColor60 : null,
+                              ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _SubStatusChip(label: status, paused: paused),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subscriptionRecurrenceLine(sub),
+                    style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                          color: muted ? blackColor60 : null,
+                        ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Next: ${sub.nextDelivery.isEmpty ? sub.deliveryTime : sub.nextDelivery}',
+                    style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                          color: muted ? blackColor60 : null,
+                        ),
+                  ),
+                  if (paused) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Paused — Resume in Regular Deliveries',
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyMedium!
+                          .copyWith(
+                            fontSize: 12,
+                            color: blackColor60,
+                            fontWeight: FontWeight.w500,
+                          ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SubStatusChip extends StatelessWidget {
+  const _SubStatusChip({required this.label, required this.paused});
+
+  final String label;
+  final bool paused;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: paused ? blackColor10 : const Color(0xFFEAF4FC),
+        borderRadius:
+            const BorderRadius.all(Radius.circular(30)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: paused ? blackColor60 : primaryColor,
+        ),
+      ),
+    );
+  }
+}
+
+class _OrderCard extends StatelessWidget {
+  const _OrderCard({
+    required this.order,
+    required this.cancelling,
+    required this.onCancel,
+    required this.onOpen,
+    required this.onReorder,
+  });
+
+  final Order order;
+  final bool cancelling;
+  final VoidCallback? onCancel;
+  final VoidCallback onOpen;
+  final VoidCallback? onReorder;
+
+  @override
+  Widget build(BuildContext context) {
+    final failed = order.status == OrderStatus.notDelivered;
+    final firstId = order.items.isEmpty ? '' : order.items.first.productId;
+    final firstName =
+        order.items.isEmpty ? order.displayLabel : order.items.first.name;
+    final hasMore = order.items.length > 1;
+    return GestureDetector(
+      onTap: onOpen,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: defaultPadding),
+        padding: const EdgeInsets.all(defaultPadding),
+        decoration: BoxDecoration(
+          color: failed ? const Color(0xFFFFF5F5) : Colors.white,
+          border: Border.all(
+            color: failed ? errorColor : Theme.of(context).dividerColor,
+          ),
+          borderRadius: const BorderRadius.all(
+              Radius.circular(defaultBorderRadious)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            OrderItemThumbnail(productId: firstId, size: 56),
+            const SizedBox(width: defaultPadding / 2),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          hasMore
+                              ? '$firstName +${order.items.length - 1} more'
+                              : firstName,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleSmall!
+                              .copyWith(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _StatusChip(status: order.status),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    order.itemsSummary,
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          order.deliverySlot,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ),
+                      Text(
+                        inr(order.totalAmount),
+                        textAlign: TextAlign.right,
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleSmall!
+                            .copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
+                  if (failed) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Delivery failed — try reorder.',
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyMedium!
+                          .copyWith(
+                            fontSize: 12,
+                            color: const Color(0xFF8B1A1A),
+                            fontWeight: FontWeight.w500,
+                          ),
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (onCancel != null)
+                          TextButton(
+                            onPressed:
+                                cancelling ? null : onCancel,
+                            child: Text(cancelling
+                                ? "Cancelling..."
+                                : "Cancel"),
+                          ),
+                        if (onReorder != null)
+                          TextButton(
+                            onPressed: onReorder,
+                            child: const Text("Reorder"),
+                          ),
+                        OutlinedButton(
+                          onPressed: onOpen,
+                          child: const Text("View"),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusChip extends StatelessWidget {
+  const _StatusChip({required this.status});
 
   final OrderStatus status;
 
   @override
   Widget build(BuildContext context) {
-    final Color color = status == OrderStatus.delivered ||
-            status == OrderStatus.active ||
-            status == OrderStatus.scheduled ||
-            status == OrderStatus.preparing ||
-            status == OrderStatus.outForDelivery
-        ? successColor
-        : errorColor;
-    return Row(
-      children: [
-        Container(
-          height: 8,
-          width: 8,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    final (bg, fg) = switch (status) {
+      OrderStatus.scheduled => (
+          blackColor5,
+          blackColor60,
         ),
-        const SizedBox(width: 6),
-        Text(
-          orderStatusLabel(status),
-          style: Theme.of(context)
-              .textTheme
-              .bodyMedium!
-              .copyWith(fontSize: 12, fontWeight: FontWeight.w500),
+      OrderStatus.preparing => (
+          const Color(0xFFFFF3E0),
+          const Color(0xFFE65100),
         ),
-      ],
+      OrderStatus.outForDelivery || OrderStatus.active => (
+          const Color(0xFFEAF4FC),
+          primaryColor,
+        ),
+      OrderStatus.delivered => (
+          const Color(0xFFE6F7ED),
+          const Color(0xFF1B8C4A),
+        ),
+      OrderStatus.cancelled => (
+          const Color(0xFFFDECEC),
+          errorColor,
+        ),
+      OrderStatus.notDelivered => (
+          const Color(0xFFF8D7D7),
+          const Color(0xFF8B1A1A),
+        ),
+    };
+    return Container(
+      padding:
+          const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius:
+            const BorderRadius.all(Radius.circular(30)),
+      ),
+      child: Text(
+        orderStatusLabel(status),
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: fg,
+        ),
+      ),
     );
   }
 }
@@ -512,6 +866,7 @@ class _OrderDetailSheet extends StatelessWidget {
           // consistent.
           UiTimeline(items: _timelineItems(order)),
           const SizedBox(height: defaultPadding),
+          _PairFooter(order: order),
         ],
       ),
     );
@@ -545,5 +900,70 @@ class _OrderDetailSheet extends StatelessWidget {
           color: i < doneThrough ? primaryColor : blackColor20,
         ),
     ];
+  }
+}
+
+/// Compact cross-sell footer inside the auto-opened detail sheet.
+/// Moved here from the cart success view so the refill↔jar pair stays
+/// reachable after the success view pushes straight to tabs.
+class _PairFooter extends StatelessWidget {
+  const _PairFooter({required this.order});
+
+  final Order order;
+
+  @override
+  Widget build(BuildContext context) {
+    final firstId = order.items.isEmpty ? '' : order.items.first.productId;
+    final sibling = const ProductRepository().crossSellSibling(firstId);
+    if (sibling == null) return const SizedBox.shrink();
+    final needJar = sibling.unit == 'jar';
+    return Container(
+      padding: const EdgeInsets.all(defaultPadding),
+      decoration: const BoxDecoration(
+        color: Color(0xFFEAF4FC),
+        borderRadius: BorderRadius.all(
+            Radius.circular(defaultBorderRadious)),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            height: 40,
+            width: 40,
+            child: NetworkImageWithLoader(
+              sibling.image,
+              radius: defaultBorderRadious / 2,
+            ),
+          ),
+          const SizedBox(width: defaultPadding / 2),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  needJar ? "Need the container?" : "Just need a refill?",
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleSmall!
+                      .copyWith(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  "${sibling.title} · ${inr(sibling.price)}",
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pushNamed(
+              context,
+              productDetailsScreenRoute,
+              arguments: sibling.id,
+            ),
+            child: const Text("View"),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class SessionStore {
   static const _tokenKey = 'auth_token';
   static const _userKey = 'auth_user';
+  static const _seenOnboardingKey = 'seen_onboarding';
 
   const SessionStore();
 
@@ -41,6 +42,19 @@ class SessionStore {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
     await prefs.remove(_userKey);
+  }
+
+  /// First-launch flag: false until the onboarding flow completes or is
+  /// skipped. Sign-out ([clear]) never resets it — onboarding shows once
+  /// per install, never after auth.
+  Future<bool> readSeenOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_seenOnboardingKey) ?? false;
+  }
+
+  Future<void> setSeenOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_seenOnboardingKey, true);
   }
 
   /// Merges [fields] (e.g. name/phone from the profile edit sheet) into

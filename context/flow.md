@@ -173,10 +173,11 @@ specify init . --integration opencode --force --non-interactive --script ps
 ```
 EntryPoint [_currentIndex]
   ├─ 0 Home    → HomeScreen
-  ├─ 1 Orders  → OrdersScreen (ONGOING / PAST tabs)
+  ├─ 1 Orders  → OrdersScreen (grouped list; accepts openOrderId + one-shot placed toast via route args {tab, openOrderId, showPlacedToast})
   ├─ 2 Shop    → DiscoverScreen (water categories)
   └─ 3 Account → ProfileScreen (Phase 1: as-is)
 ```
+Launch: `_BootGate` (main.dart) — first run → onboarding (sets `seen_onboarding`, survives logout); token → EntryPoint as route-root; else login. Post-auth routes are remove-until (login never resurfaces via back).
 
 ### Screen → data flow (all reads go through repositories)
 ```
@@ -233,7 +234,7 @@ HomeScreen
 ProductDetailsScreen → spec table/qty → orderTypeScreenRoute{productId, qty}
 OrderTypeScreen → one-time → cart{…} | regular → subscriptionConfig (frequency + Mon–Sun day picker for specific_days + live summary → cart{days}) → cart
 CartScreen → fetchAddresses (RadioListTile select, default first; defaultAddress fallback only when empty) → POST /api/orders{items, addressId|address, type, slot} → success (pushReplacement → orders{id}, auto-open detail sheet + refill↔jar cross-sell card) | NETWORK failure → inline not-sent state + retry (never success)
-OrdersScreen (ONGOING/PAST, incl. preparing/out_for_delivery) → View sheet (titled + Close) → OrderProgress timeline; auto-opens sheet when route args carry an order id; empty → "Order water" CTA → discover
+OrdersScreen (grouped: Repeating from subscriptions with recurrence lines, Active one-time, Delivered, Cancelled; photo rows, detail sheets, Reorder on terminal rows; empty/error/retry/offline per States.md) → View sheet (titled + Close) → OrderProgress timeline; auto-opens sheet when route args carry an order id; success landing arrives via entry{tab:1, openOrderId, showPlacedToast}
 SubscriptionsScreen → pause/skip/modify (live: GET/POST/PATCH /api/subscriptions; demo: local state)
 SearchScreen → ProductRepository.search() → details grid
 ```

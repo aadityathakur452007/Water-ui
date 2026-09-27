@@ -5,20 +5,124 @@ import 'package:shop/constants.dart';
 import 'package:shop/route/screen_export.dart';
 
 class EntryPoint extends StatefulWidget {
-  const EntryPoint({super.key});
+  /// Post-checkout / deep-link entry.
+  ///
+  /// Route-argument contract (parsed defensively by [parseEntryPointArgs]):
+  /// `{tab: int, openOrderId: String?, showPlacedToast: bool}`.
+  /// - [initialTab] selects the bottom-nav index (Orders lives at index 1).
+  /// - [openOrderId] is left on the route arguments so [OrdersScreen]'s
+  ///   existing auto-open (which reads `ModalRoute` args) can pick it up.
+  /// - [showPlacedToast] shows a one-time "Order placed" SnackBar.
+  const EntryPoint({
+    super.key,
+    this.initialTab = 0,
+    this.openOrderId,
+    this.showPlacedToast = false,
+  });
+
+  final int initialTab;
+  final String? openOrderId;
+  final bool showPlacedToast;
 
   @override
   State<EntryPoint> createState() => _EntryPointState();
 }
 
+/// Defensive parser for the entry-point route arguments. Anything missing
+/// or wrong-typed falls back to defaults (tab 0, no order, no toast) and
+/// never throws — invalid args must never crash the entry surface.
+({int tab, String? openOrderId, bool showPlacedToast}) parseEntryPointArgs(
+  Object? args,
+) {
+  const ({int tab, String? openOrderId, bool showPlacedToast}) none =
+      (tab: 0, openOrderId: null, showPlacedToast: false);
+  if (args == null) return none;
+  if (args is int) {
+    return (tab: _clampTab(args), openOrderId: null, showPlacedToast: false);
+  }
+  if (args is String) {
+    // Legacy shape: a bare order id (checkout used to push it directly).
+    final id = args.trim();
+    if (id.isEmpty) return none;
+    return (tab: 1, openOrderId: id, showPlacedToast: false);
+  }
+  if (args is Map) {
+    final rawTab = args['tab'];
+    final tab = rawTab is int ? _clampTab(rawTab) : 0;
+    String? openOrderId;
+    final rawOpen = args['openOrderId'];
+    if (rawOpen is String && rawOpen.trim().isNotEmpty) {
+      openOrderId = rawOpen.trim();
+    } else {
+      // Alias the key OrdersScreen's existing auto-open already reads.
+      final legacy = args['orderId'];
+      if (legacy is String && legacy.trim().isNotEmpty) {
+        openOrderId = legacy.trim();
+      }
+    }
+    return (
+      tab: tab,
+      openOrderId: openOrderId,
+      showPlacedToast: args['showPlacedToast'] == true,
+    );
+  }
+  return none;
+}
+
+int _clampTab(int tab) => tab < 0 ? 0 : (tab > 3 ? 3 : tab);
+
 class _EntryPointState extends State<EntryPoint> {
-  final List _pages = const [
-    HomeScreen(),
-    OrdersScreen(),
-    DiscoverScreen(),
-    ProfileScreen(),
-  ];
-  int _currentIndex = 0;
+  List<Widget> get _pages => const [
+        HomeScreen(),
+        OrdersScreen(),
+        DiscoverScreen(),
+        ProfileScreen(),
+      ];
+  late int _currentIndex;
+  bool _routeArgsAdopted = false;
+  bool _toastShown = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = _clampTab(widget.initialTab);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Fallback for pushes that bypass generateRoute (direct
+    // MaterialPageRoute): adopt valid route args the constructor missed.
+    // generateRoute already forwards via the constructor, so when both
+    // agree this is a no-op.
+    if (_routeArgsAdopted) return;
+    _routeArgsAdopted = true;
+    final routeArgs = ModalRoute.of(context)?.settings.arguments;
+    if (routeArgs == null) {
+      _maybeShowPlacedToast();
+      return;
+    }
+    final parsed = parseEntryPointArgs(routeArgs);
+    if (widget.initialTab == 0 &&
+        widget.openOrderId == null &&
+        !widget.showPlacedToast) {
+      _currentIndex = parsed.tab;
+    }
+    _maybeShowPlacedToast(
+        show: widget.showPlacedToast || parsed.showPlacedToast);
+  }
+
+  void _maybeShowPlacedToast({bool? show}) {
+    if (_toastShown) return;
+    if (!(show ?? widget.showPlacedToast)) return;
+    _toastShown = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Order placed successfully')),
+      );
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

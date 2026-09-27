@@ -35,6 +35,7 @@
 
 | ID | Date | Decision | Status | Affects |
 |----|------|----------|--------|---------|
+| ADR-029 | 2026-09-27 | Orders grouped list + recurrence rows, first-run onboarding, session routing, States.md pass | Accepted | orders screen, boot/entry/auth routing, order_grouping, 2 test files |
 | ADR-028 | 2026-09-27 | Experience pass: custom-day schedules, vendor 8-KPI redesign + settings, order photos, cross-sell, water nav, account/help | Accepted | apps/user user+vendor screens, subscription days, backend days column |
 | ADR-027 | 2026-09-26 | Shodasha lineup: 20L refill 28 + 20L jar 30 + 1L coming-soon; login logo | Accepted | product_model, demo_seed, categories, auth headers, backend seeds, tests |
 | ADR-026 | 2026-09-26 | Shodasha branding: logo/photos, OS names, generated launcher icons | Accepted | apps/user assets+manifests+seeds, flutter_launcher_icons dev-dep |
@@ -82,6 +83,16 @@
 ---
 
 ## Decision Entries
+
+### ADR-029: Grouped orders + recurrence, first-run onboarding, session routing
+- **Date**: 2026-09-27
+- **Status**: Accepted
+- **Context**: Login/onboarding resurfaced after auth; success view hid the bottom nav; ONGOING/PAST tabs split repeats into row-per-day spam; States.md had no enforcement point.
+- **Options considered**: Keep tabs + restyle (rejected — repeats still spam rows); success screen with tabs added (rejected — extra chrome; landing on Orders tab + receipt toast is one less screen); server-driven recurrence (rejected — derived from subscriptions already fetched).
+- **Decision**: Single grouped list (Active incl. subscription-built Repeating block / Delivered / Cancelled) with photo rows, failed-delivery + Reorder actions; post-purchase → entry Orders tab + toast + auto-open; `seen_onboarding` flag + token-aware `_BootGate` (entry as route-root); entry args {tab, openOrderId, showPlacedToast} defensive; state table kept in flow.md per States.md.
+- **Why**: Repeats read as one continuing row ("continues this week") instead of daily duplicates; auth screens can never resurface via back or restart; every touched flow has loading/empty/error/retry states.
+- **Consequences**: 76/76 tests (27 new across 2 files); direct orders/cart pushes still drop router settings (entry path normalized; legacy path untouched).
+- **Affects**: `orders_screen.dart`, `order_grouping.dart`, cart success, `main.dart`, `entry_point.dart`, router entry case, onboarding, `session_store.dart`, 2 test files
 
 ### ADR-028: Experience pass — schedules, vendor redesign, photos, cross-sell, settings
 - **Date**: 2026-09-27

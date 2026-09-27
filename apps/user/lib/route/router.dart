@@ -174,8 +174,26 @@ Route<dynamic> generateRoute(RouteSettings settings) {
     //     builder: (context) => const SearchHistoryScreen(),
     //   );
     case entryPointScreenRoute:
+      final parsed = parseEntryPointArgs(settings.arguments);
+      // Keep OrdersScreen's existing ModalRoute auto-open working: it
+      // reads a bare String or Map['orderId'], so alias openOrderId.
+      // Settings are forwarded (previously dropped) so both EntryPoint
+      // and the embedded OrdersScreen see the same arguments.
+      final normalized = <String, dynamic>{
+        'tab': parsed.tab,
+        if (parsed.openOrderId != null) ...{
+          'openOrderId': parsed.openOrderId,
+          'orderId': parsed.openOrderId,
+        },
+        'showPlacedToast': parsed.showPlacedToast,
+      };
       return MaterialPageRoute(
-        builder: (context) => const EntryPoint(),
+        settings: RouteSettings(name: settings.name, arguments: normalized),
+        builder: (context) => EntryPoint(
+          initialTab: parsed.tab,
+          openOrderId: parsed.openOrderId,
+          showPlacedToast: parsed.showPlacedToast,
+        ),
       );
     case profileScreenRoute:
       return MaterialPageRoute(

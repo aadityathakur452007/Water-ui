@@ -694,16 +694,24 @@ class _SuccessView extends StatelessWidget {
               Text("Delivery: ${order.deliverySlot}",
                   style: Theme.of(context).textTheme.bodyMedium),
               const SizedBox(height: defaultPadding),
-              _PairCard(order: order),
-              const SizedBox(height: defaultPadding / 2),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  // Replacement (no back-stack pile-up) + the real order
-                  // id so Orders auto-opens this order's detail sheet.
-                  onPressed: () => Navigator.pushReplacementNamed(
-                      context, ordersScreenRoute,
-                      arguments: order.id),
+                  // Tabs landing (no dead ends): clear to entry_point on the
+                  // Orders tab (index 1: Home 0, Orders 1, Shop 2, Account 3)
+                  // + auto-open this order's detail sheet + one-shot toast.
+                  // Pair cross-sell lives in that detail sheet footer now.
+                  onPressed: () =>
+                      Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    entryPointScreenRoute,
+                    (_) => false,
+                    arguments: {
+                      'tab': 1,
+                      'openOrderId': order.id,
+                      'showPlacedToast': true,
+                    },
+                  ),
                   child: const Text("View Order"),
                 ),
               ),
@@ -721,66 +729,3 @@ class _SuccessView extends StatelessWidget {
   }
 }
 
-/// Refill↔jar cross-sell on the success view. Renders nothing when the
-/// ordered product has no sibling (1L / unknown). Home + View Order stay.
-class _PairCard extends StatelessWidget {
-  const _PairCard({required this.order});
-
-  final Order order;
-
-  @override
-  Widget build(BuildContext context) {
-    final firstId = order.items.isEmpty ? '' : order.items.first.productId;
-    final sibling = const ProductRepository().crossSellSibling(firstId);
-    if (sibling == null) return const SizedBox.shrink();
-    final bool needJar = sibling.unit == 'jar';
-    return Container(
-      padding: const EdgeInsets.all(defaultPadding),
-      decoration: BoxDecoration(
-        border: Border.all(color: Theme.of(context).dividerColor),
-        borderRadius: const BorderRadius.all(
-            Radius.circular(defaultBorderRadious)),
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            height: 48,
-            width: 48,
-            child: NetworkImageWithLoader(
-              sibling.image,
-              radius: defaultBorderRadious / 2,
-            ),
-          ),
-          const SizedBox(width: defaultPadding / 2),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  needJar ? "Need the container?" : "Just need a refill?",
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleSmall!
-                      .copyWith(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  "${sibling.title} · ${inr(sibling.price)}",
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ],
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pushNamed(
-              context,
-              productDetailsScreenRoute,
-              arguments: sibling.id,
-            ),
-            child: const Text("View"),
-          ),
-        ],
-      ),
-    );
-  }
-}
