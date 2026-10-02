@@ -35,6 +35,7 @@
 
 | ID | Date | Decision | Status | Affects |
 |----|------|----------|--------|---------|
+| ADR-033 | 2026-10-02 | Slice 2: package rename verified done; store-listing location-Yes Data-safety correction | Accepted | store-listing.md (no code change needed) |
 | ADR-032 | 2026-10-02 | Slice 3: keyless flutter_map+OSM picker + order tracking (no Google key/billing) | Accepted | address_map_picker, order_tracking, pubspec flutter_map/latlong2 |
 | ADR-031 | 2026-10-02 | Slice 1: server vendor profile/slots/tickets, ApiClient.put, ticket message as first reply | Accepted | backend profile/slots/tickets, vendor settings+tickets screens, api_client |
 | ADR-030 | 2026-10-02 | Vendor-missing build: GPS permission+service, full address format, vendor customers/earnings/inventory, live-first | Accepted | location_service+manifest+address repo/store/backend addresses+vendor screens+theme |
@@ -86,6 +87,15 @@
 ---
 
 ## Decision Entries
+
+### ADR-033: Slice 2 — rename already done; Data-safety must declare location
+- **Date**: 2026-10-02
+- **Status**: Accepted
+- **Context**: store-listing.md §8 still claimed package/label TODO, but verification (gradle namespace+applicationId, MainActivity path, iOS bundle IDs, repo-wide grep) shows `com.waterdelivery.app` everywhere with zero stale refs.
+- **Decision**: Corrected the doc instead of renaming code; rewrote §4 (old "collects no data" VOID — precise location now collected for fulfilment; Data-safety → Yes/Location/required/not-shared); closed §8 items 1–2, added location warning. No lib/backend changes, so no test gate beyond grep.
+- **Why**: Truth over checklist — shipping a rename that already happened would churn git history for nothing; the real release blocker is the false no-collection declaration.
+- **Consequences**: User-run leftovers: privacy URL host, keystore + 4 secrets, D1 remote migrations, console rollout.
+- **Affects**: `Feature_docs/store-listing.md`
 
 ### ADR-032: Slice 3 — keyless maps (flutter_map + OSM, no Google key)
 - **Date**: 2026-10-02

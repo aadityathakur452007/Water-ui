@@ -15,8 +15,8 @@
 
 | Field | Value | Status |
 |---|---|---|
-| App name (Play) | Water Delivery (confirm final spelling) | TODO — `AndroidManifest.xml` label is still `shop` |
-| Package | `com.waterdelivery.app` | TODO — `build.gradle` namespace + `applicationId` are still `com.example.shop`; `MainActivity` still at `com/example/shop/` |
+| App name (Play) | Water Delivery (confirm final spelling) | OK — `AndroidManifest.xml` label is `Shodasha` (brand name, 2026-09-26) |
+| Package | `com.waterdelivery.app` | DONE 2026-10-02 — verified: gradle `namespace` + `applicationId`, `MainActivity` at `kotlin/com/waterdelivery/app/`, iOS `PRODUCT_BUNDLE_IDENTIFIER` all `com.waterdelivery.app`; zero `com.example.shop` refs repo-wide |
 | Version | `1.0.0+1` (`pubspec.yaml`); CI overrides to `--build-name=<tag>` + `--build-number=<run_number>` | Note: Play versionCode = GitHub run number, not `+1` |
 | Category | Shopping / Food & Drink (pick one, stays) | TODO |
 | Contact email | <owner email> | TODO |
@@ -36,11 +36,11 @@
 - CI (`release.yml`): without the 4 secrets it prints `No keystore secret — release will be debug-signed` and publishes a debug-signed APK+AAB to the GitHub Release page. **Do not upload that AAB to Play.**
 - After secrets are set, the same workflow writes `android/key.properties` + `android/app/upload-keystore.jks` and produces the upload-signed AAB (`dist/water-delivery-<tag>.aab` + `.apk` + `SHA256SUMS.txt`).
 
-## 4. Privacy policy + Data safety (v1 declares none collected)
+## 4. Privacy policy + Data safety (v1.1 declares precise location)
 
-- [ ] Host a public privacy-policy URL (required for all apps, even with zero collection). Link it in Play Console → Store settings.
-- [ ] Policy must state: v1 collects **no personal data**, no location, no contacts, no analytics SDK, no ads SDK; orders/account data (if added later) requires a policy + Data-safety update before that release.
-- [ ] Play Console → Data safety form: answer **"Does your app collect or share any user data?" → No** (v1). Revisit on any release that adds auth, orders, push tokens, or analytics.
+- [ ] Host a public privacy-policy URL (required). Link it in Play Console → Store settings.
+- [ ] Policy must state: precise location is collected ONLY to fulfil water delivery (address pin + order tracking), stored as address lat/lng on our backend, never shared/sold; no contacts, no analytics/ads SDKs. (Update 2026-10-02: the old "collects no data" declaration is VOID — location permission + address lat/lng shipped in vendor-missing/phase-2 builds.)
+- [ ] Play Console → Data safety form: **"Does your app collect or share any user data?" → Yes → Location (precise), collected, required for app functionality (delivery fulfilment), not shared.** Revisit if push tokens ship (Slice 4).
 
 ## 5. Upload key — generate once, store as 4 secrets
 
@@ -85,7 +85,8 @@ certutil -encode upload-keystore.jks upload-keystore.b64 | Select-String -Patter
 - `android/.gitignore` — **OK**: ignores `key.properties`, `**/*.keystore`, `**/*.jks`. Verified: `git check-ignore` hits for `android/key.properties` and `android/app/upload-keystore.jks`; no keystore files tracked (`git ls-files android` clean). Root `.gitignore` has no keystore lines — not a mismatch (android-scoped ignore covers it).
 - `.github/workflows/release.yml` — **OK**: 4-secret contract (`ANDROID_KEYSTORE_BASE64`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`, `ANDROID_STORE_PASSWORD`) written to `android/key.properties` with keys matching `build.gradle`; debug fallback message present; builds fresh APK+AAB from the tag with `--build-name=<tag-minus-v> --build-number=<run_number>`.
 - **Mismatches (must fix before Play upload, outside these frozen files)**:
-  1. Package is `com.example.shop` (namespace, `applicationId`, `MainActivity` path), not `com.waterdelivery.app`.
-  2. App label is `shop`, not the store name.
+  1. ~~Package is `com.example.shop`~~ RESOLVED 2026-10-02 (see §1).
+  2. ~~App label is `shop`~~ RESOLVED (label `Shodasha` since 2026-09-26).
   3. Play versionCode will be the GitHub run number (CI override), not `pubspec` `+1` — tag/run scheme is fine, just know it.
   4. Everything today is debug-signed (no local `key.properties`/`.jks`; no secrets asserted here) — expected pre-release state.
+  5. NEW 2026-10-02: Data-safety + privacy policy must declare location BEFORE any build containing it goes to a track (§4).
