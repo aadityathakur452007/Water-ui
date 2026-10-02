@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shop/constants.dart';
 import 'package:shop/route/route_constants.dart';
 import 'package:shop/screens/search/views/components/search_form.dart';
+import 'package:shop/services/location_service.dart';
 
 import 'components/active_delivery.dart';
 import 'components/categories.dart';
@@ -9,8 +10,74 @@ import 'components/delivery_address_header.dart';
 import 'components/order_again.dart';
 import 'components/water_products.dart';
 
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+/// Home feed. Stateful only to own the current-location flow:
+/// Use-current-location → permission flow → reverse-geocode → prefill
+/// callback ([onLocationResolved]) + header display (label + lat/lng
+/// text, no map widget). Address persistence belongs to Agent B.
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key, this.onLocationResolved, this.locationService});
+
+  /// Prefill hook for the address sheet (Agent B consumes lat/lng + label).
+  final ValueChanged<ResolvedLocation>? onLocationResolved;
+
+  /// Injectable for widget tests (defaults to the real service).
+  final LocationService? locationService;
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  bool _locating = false;
+  String? _locationError;
+  bool _needsSettings = false;
+  ResolvedLocation? _resolved;
+
+  LocationService get _service => widget.locationService ?? LocationService();
+
+  Future<void> _useCurrentLocation() async {
+    if (_locating) return;
+    setState(() {
+      _locating = true;
+      _locationError = null;
+      _needsSettings = false;
+    });
+    try {
+      final resolved = await _service.resolveCurrentAddress();
+      if (!mounted) return;
+      setState(() => _resolved = resolved);
+      widget.onLocationResolved?.call(resolved);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Location found: ${resolved.displayLabel}')),
+      );
+    } on LocationError catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _locationError = e.userMessage;
+        // Spec: only deniedForever routes to app Settings; every other
+        // branch (incl. service-disabled, which already opened location
+        // settings) offers a plain retry.
+        _needsSettings = e.type == LocationErrorType.deniedForever;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _locationError =
+            const LocationError(LocationErrorType.unavailable).userMessage;
+        _needsSettings = false;
+      });
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
+  }
+
+  Future<void> _openSettings() async {
+    try {
+      await _service.openAppSettings();
+    } catch (_) {
+      // Settings opener unavailable — the error row with Retry remains.
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -18,7 +85,18 @@ class HomeScreen extends StatelessWidget {
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
-            const SliverToBoxAdapter(child: DeliveryAddressHeader()),
+            SliverToBoxAdapter(
+              child: DeliveryAddressHeader(
+                locatedLabel: _resolved?.displayLabel,
+                locatedLatLng: _resolved?.latLngText,
+                isLocating: _locating,
+                locationError: _locationError,
+                showSettingsAction: _needsSettings,
+                onUseCurrentLocation: _useCurrentLocation,
+                onRetryLocation: _useCurrentLocation,
+                onOpenSettings: _openSettings,
+              ),
+            ),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(

@@ -57,3 +57,7 @@ const String vendorHomeScreenRoute = "vendor_home";
 const String paymentMethodScreenRoute = "payment_method";
 const String addNewCardScreenRoute = "add_new_card";
 const String thanksForOrderScreenRoute = "thanks_order";
+const String vendorCustomersScreenRoute = "vendor_customers";
+const String vendorCustomerDetailScreenRoute = "vendor_customer_detail";
+const String vendorEarningsScreenRoute = "vendor_earnings";
+const String vendorInventoryScreenRoute = "vendor_inventory";

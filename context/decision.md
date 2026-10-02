@@ -35,6 +35,7 @@
 
 | ID | Date | Decision | Status | Affects |
 |----|------|----------|--------|---------|
+| ADR-030 | 2026-10-02 | Vendor-missing build: GPS permission+service, full address format, vendor customers/earnings/inventory, live-first | Accepted | location_service+manifest+address repo/store/backend addresses+vendor screens+theme |
 | ADR-029 | 2026-09-27 | Orders grouped list + recurrence rows, first-run onboarding, session routing, States.md pass | Accepted | orders screen, boot/entry/auth routing, order_grouping, 2 test files |
 | ADR-028 | 2026-09-27 | Experience pass: custom-day schedules, vendor 8-KPI redesign + settings, order photos, cross-sell, water nav, account/help | Accepted | apps/user user+vendor screens, subscription days, backend days column |
 | ADR-027 | 2026-09-26 | Shodasha lineup: 20L refill 28 + 20L jar 30 + 1L coming-soon; login logo | Accepted | product_model, demo_seed, categories, auth headers, backend seeds, tests |
@@ -83,6 +84,16 @@
 ---
 
 ## Decision Entries
+
+### ADR-030: Vendor-missing build — location, full address, vendor pages, live-first
+- **Date**: 2026-10-02
+- **Status**: Accepted
+- **Context**: Vendor saw no user list; location permission/GPS never existed (no manifest keys, no deps, no code); address add/change silently lost (fire-and-forget nav, non-selectable list, 3-field format); vendor lacked customers/earnings/inventory.
+- **Options considered**: New vendor backend endpoints (rejected — derive from existing vendor/orders+subscriptions, contract stays frozen); google_maps_flutter picker (rejected — lat/lng text + reverse-geocode only, no new map dep); full rewrite of checkout (rejected — awaited refresh + store only).
+- **Decision**: Manifest/Info.plist keys + 3 location deps + `LocationService` wrapper; address `{house,street,area,pincode,phone,lat,lng}` nullable end-to-end with allowlist 400s + `0003_addresses.sql` + runtime migration; `SelectedAddressStore`; vendor customers/earnings/inventory client-derived + 4 routes; shared theme tokens/cards/toast; live-first (demo = fallback only).
+- **Why**: Smallest diff closing each root cause; no contract break (additive nullable fields); no hallucinated imports (every dep resolves).
+- **Consequences**: 106/106 tests, analyze zero, tsc clean, live smoke green. Store Data-safety must flip location to Yes before release. Server vendor profile stays Phase 2.
+- **Affects**: `location_service+manifest+pubspec+home/header/notification`, `address_repository/order_model/demo_seed/selected_address/addresses/cart`, `backend/schema/migrations/app/index`, `vendor_customers/detail/earnings/inventory/home/routes`, `theme/components`, 3 new test files
 
 ### ADR-029: Grouped orders + recurrence, first-run onboarding, session routing
 - **Date**: 2026-09-27

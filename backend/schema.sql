@@ -36,7 +36,14 @@ CREATE TABLE IF NOT EXISTS addresses (
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   label TEXT NOT NULL,
   line TEXT NOT NULL,
-  city TEXT NOT NULL
+  city TEXT NOT NULL,
+  house TEXT,
+  street TEXT,
+  area TEXT,
+  pincode TEXT,
+  phone TEXT,
+  lat REAL,
+  lng REAL
 );
 
 CREATE TABLE IF NOT EXISTS orders (

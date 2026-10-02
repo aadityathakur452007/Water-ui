@@ -53,15 +53,75 @@ async function readJson(c: Ctx): Promise<any> {
   }
 }
 
+// Extended address columns (nullable for back-compat; old rows keep
+// working with the `line` fallback).
+const ADDR_COLS = "id, label, line, city, house, street, area, pincode, phone, lat, lng";
+const ADDR_COLS_NO_ID = "label, line, city, house, street, area, pincode, phone, lat, lng";
+
+// Allowlist validation for optional address fields. Returns an error
+// message or null when valid. Empty/absent values are OK (back-compat).
+function addressFieldError(body: any): string | null {
+  const pincode = body?.pincode;
+  if (pincode != null && String(pincode).trim() !== "" && !/^[1-9][0-9]{5}$/.test(String(pincode).trim())) {
+    return "pincode must be a 6-digit code starting 1-9";
+  }
+  const phone = body?.phone;
+  if (phone != null && String(phone).trim() !== "" && !/^[0-9]{10}$/.test(String(phone).trim())) {
+    return "phone must be 10 digits";
+  }
+  for (const key of ["lat", "lng"] as const) {
+    const v = body?.[key];
+    if (v == null || String(v).trim() === "") continue;
+    const n = Number(v);
+    if (!Number.isFinite(n)) return `${key} must be a number`;
+    if (key === "lat" && (n < -90 || n > 90)) return "lat must be between -90 and 90";
+    if (key === "lng" && (n < -180 || n > 180)) return "lng must be between -180 and 180";
+  }
+  return null;
+}
+
+// Normalizes optional address fields to null-vs-value for parameterized inserts.
+function addressExtras(body: any) {
+  const opt = (v: any) => {
+    const s = v == null ? "" : String(v).trim();
+    return s === "" ? null : s;
+  };
+  const num = (v: any) => {
+    if (v == null || String(v).trim() === "") return null;
+    return Number(v);
+  };
+  return {
+    house: opt(body?.house),
+    street: opt(body?.street),
+    area: opt(body?.area),
+    pincode: opt(body?.pincode),
+    phone: opt(body?.phone),
+    lat: num(body?.lat),
+    lng: num(body?.lng),
+  };
+}
+
+// Response projection for an address row. Extended columns ride along
+// (null for legacy rows); clients fall back to `line` when absent.
+function toAddressJson(a: Row, withId: boolean) {
+  const base: Row = {
+    label: a.label, line: a.line, city: a.city,
+    house: a.house ?? null, street: a.street ?? null, area: a.area ?? null,
+    pincode: a.pincode ?? null, phone: a.phone ?? null,
+    lat: a.lat ?? null, lng: a.lng ?? null,
+  };
+  return withId ? { id: a.id, ...base } : base;
+}
+
 // Full order view for the owning user.
 async function userOrderDetail(db: DbClient, orderId: number): Promise<any> {
   const o = (await db.one("SELECT * FROM orders WHERE id = ?", orderId)) as Row;
   const items = (await db.all("SELECT product_id, name, qty, price FROM order_items WHERE order_id = ?", orderId))
     .map((i) => ({ productId: i.product_id, name: i.name, qty: i.qty, price: i.price }));
-  const a = o.address_id ? await db.one("SELECT id, label, line, city FROM addresses WHERE id = ?", o.address_id) : null;
+  const a = o.address_id ? await db.one(`SELECT ${ADDR_COLS} FROM addresses WHERE id = ?`, o.address_id) : null;
   return {
     id: o.id, type: o.type, status: o.status, total: o.total, slot: o.slot ?? null,
-    address: a ? { id: a.id, label: a.label, line: a.line, city: a.city } : null,
+    address: a ? toAddressJson(a as Row, true) : null,
     items, created_at: o.created_at,
   };
 }
@@ -77,11 +137,11 @@ async function vendorOrderDetail(db: DbClient, orderId: number): Promise<any> {
   )) as Row;
   const items = (await db.all("SELECT product_id, name, qty, price FROM order_items WHERE order_id = ?", orderId))
     .map((i) => ({ productId: i.product_id, name: i.name, qty: i.qty, price: i.price }));
-  const a = o.address_id ? await db.one("SELECT label, line, city FROM addresses WHERE id = ?", o.address_id) : null;
+  const a = o.address_id ? await db.one(`SELECT ${ADDR_COLS_NO_ID} FROM addresses WHERE id = ?`, o.address_id) : null;
   const hasCustomer = o.customer_name != null || o.customer_phone != null || o.customer_email != null;
   return {
     id: o.id, type: o.type, status: o.status, total: o.total, slot: o.slot ?? null,
-    address: a ? { label: a.label, line: a.line, city: a.city } : null,
+    address: a ? toAddressJson(a as Row, false) : null,
     customer: hasCustomer
       ? { name: o.customer_name ?? "", phone: o.customer_phone ?? "", email: o.customer_email ?? "" }
       : null,
@@ -179,7 +239,7 @@ export function createApp(db: DbClient, auth: AuthHasher) {
   async function listAddresses(c: Ctx) {
     const user = c.get("user");
     return c.json(
-      await db.all("SELECT id, label, line, city FROM addresses WHERE user_id = ? ORDER BY id ASC", user.id)
+      await db.all(`SELECT ${ADDR_COLS} FROM addresses WHERE user_id = ? ORDER BY id ASC`, user.id)
     );
   }
 
@@ -190,8 +250,14 @@ export function createApp(db: DbClient, auth: AuthHasher) {
     const line = String(body?.line ?? "").trim();
     const city = String(body?.city ?? "").trim();
     if (!label || !line || !city) return c.json(err("VALIDATION", "label, line and city are required"), 400);
-    const r = await db.run("INSERT INTO addresses (user_id, label, line, city) VALUES (?, ?, ?, ?)", user.id, label, line, city);
-    const a = (await db.one("SELECT id, label, line, city FROM addresses WHERE id = ?", Number(r.lastInsertRowid))) as Row;
+    const fieldErr = addressFieldError(body);
+    if (fieldErr) return c.json(err("VALIDATION", fieldErr), 400);
+    const ex = addressExtras(body);
+    const r = await db.run(
+      "INSERT INTO addresses (user_id, label, line, city, house, street, area, pincode, phone, lat, lng) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      user.id, label, line, city, ex.house, ex.street, ex.area, ex.pincode, ex.phone, ex.lat, ex.lng
+    );
+    const a = (await db.one(`SELECT ${ADDR_COLS} FROM addresses WHERE id = ?`, Number(r.lastInsertRowid))) as Row;
     return c.json(a, 201);
   }
 
@@ -212,7 +278,13 @@ export function createApp(db: DbClient, auth: AuthHasher) {
       const line = String(body.address.line ?? "").trim();
       const city = String(body.address.city ?? "").trim();
       if (!label || !line || !city) return c.json(err("VALIDATION", "address needs label, line and city"), 400);
-      const r = await db.run("INSERT INTO addresses (user_id, label, line, city) VALUES (?, ?, ?, ?)", user.id, label, line, city);
+      const fieldErr = addressFieldError(body.address);
+      if (fieldErr) return c.json(err("VALIDATION", fieldErr), 400);
+      const ex = addressExtras(body.address);
+      const r = await db.run(
+        "INSERT INTO addresses (user_id, label, line, city, house, street, area, pincode, phone, lat, lng) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        user.id, label, line, city, ex.house, ex.street, ex.area, ex.pincode, ex.phone, ex.lat, ex.lng
+      );
       addressId = Number(r.lastInsertRowid);
     } else {
       return c.json(err("VALIDATION", "addressId or address is required"), 400);

@@ -50,6 +50,14 @@
 	<string>http</string>
 	<string>https</string>
 	</array>
+	<!-- Agent A (location + notifications). One-shot current-position fix to
+	     prefill the delivery address; no continuous background tracking. -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Shodasha uses your location to prefill your delivery address and show accurate delivery options.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Shodasha may use your location during an active delivery to update arrival status. Location is never tracked when you have no active order. You can choose "While Using the App" instead.</string>
+	<key>NSLocalNotificationsUsageDescription</key>
+	<string>Shodasha sends order confirmations, delivery alerts and refill reminders as notifications.</string>
 
 </dict>
 </plist>

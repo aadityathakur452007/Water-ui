@@ -265,6 +265,25 @@ POST /api/orders → createOrder (backend/src/index.ts)
 
 ---
 
+## Vendor-missing build — Actual (Flutter + Hono, 2026-10-02, ADR-030)
+
+```
+Location: Home [Use current location] → LocationService.resolveCurrentAddress()
+  (isServiceEnabled→openLocationSettings | check/request→openAppSettings on
+  deniedForever | getCurrentPosition(high, 15s) → placemark → ResolvedLocation)
+  → prefill address sheet (lat/lng + street/area/city/pincode)
+Notifications: EnableNotificationScreen → Permission.notification.request() → options
+Address: AddressesScreen (RadioListTile + pop selectedId) ↔ SelectedAddressStore
+  (SharedPreferences selectedId) ↔ Cart (awaited pushNamed + _loadAddresses)
+  → POST /api/addresses {label,line,city + house/street/area/pincode/phone/lat/lng}
+  → 201 select | 400 field VALIDATION | 401→login | NETWORK→retry
+Vendor new tabs (VendorHome idx 3-5 + Settings last): Customers (group fetchOrders
+  by email/phone/name key, search → detail) / Earnings (gross/today/week/AOV ex-cancelled,
+  ₹10 fee-split note) / Inventory (GET /api/products + available badges, read-only)
+Backend: addresses ADD COLUMN ×7 (0003_addresses.sql + index.ts runtime guard);
+  addressFieldError allowlist; toAddressJson projection incl. vendor detail.
+```
+
 ## CI Pipeline (GitHub Actions, 2026-09-24)
 
 ```

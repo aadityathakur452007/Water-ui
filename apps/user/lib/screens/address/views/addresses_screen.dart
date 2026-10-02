@@ -4,10 +4,13 @@ import 'package:shop/repositories/address_repository.dart';
 import 'package:shop/route/route_constants.dart';
 import 'package:shop/services/api_client.dart';
 import 'package:shop/services/auth_service.dart';
+import 'package:shop/store/selected_address_store.dart';
 
 /// Saved delivery addresses. Live data via [AddressRepository]
 /// (`GET /api/addresses`); new addresses via the bottom sheet
 /// (`POST /api/addresses`). Demo mode serves the bundled address.
+/// Selecting an address pops it (`Navigator.pop(selectedId)`) so the
+/// Cart caller can refresh + sync [SelectedAddressStore].
 class AddressesScreen extends StatefulWidget {
   const AddressesScreen({super.key});
 
@@ -17,12 +20,30 @@ class AddressesScreen extends StatefulWidget {
 
 class _AddressesScreenState extends State<AddressesScreen> {
   final _repo = const AddressRepository();
+  final _selection = SelectedAddressStore();
   Future<List<Address>>? _future;
+  String? _selectedId;
 
   @override
   void initState() {
     super.initState();
     _future = _repo.fetchAddresses();
+    _selection.load().then((_) {
+      if (mounted && _selection.selectedId != _selectedId) {
+        setState(() => _selectedId = _selection.selectedId);
+      }
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is String && args.isNotEmpty && args != _selectedId) {
+      _selectedId = args;
+    } else if (args is Map && args['selectedId'] is String) {
+      _selectedId = args['selectedId'] as String;
+    }
   }
 
   void _reload() => setState(() => _future = _repo.fetchAddresses());
@@ -36,6 +57,16 @@ class _AddressesScreenState extends State<AddressesScreen> {
         (_) => false,
       );
     }
+  }
+
+  /// Selects an address: persists via [SelectedAddressStore] and pops the
+  /// id so the Cart caller refreshes (`await pushNamed + _loadAddresses`).
+  Future<void> _choose(String? id, List<Address> addresses) async {
+    if (id == null) return;
+    if (!addresses.any((a) => a.id == id)) return;
+    setState(() => _selectedId = id);
+    await _selection.select(id);
+    if (mounted) Navigator.pop(context, id);
   }
 
   @override
@@ -119,28 +150,37 @@ class _AddressesScreenState extends State<AddressesScreen> {
               ),
             );
           }
-          return ListView.separated(
-            padding: const EdgeInsets.all(defaultPadding),
-            itemCount: addresses.length,
-            separatorBuilder: (_, __) =>
-                const SizedBox(height: defaultPadding / 2),
-            itemBuilder: (context, index) {
-              final a = addresses[index];
-              return Container(
-                decoration: BoxDecoration(
-                  border:
-                      Border.all(color: Theme.of(context).dividerColor),
-                  borderRadius: const BorderRadius.all(
-                      Radius.circular(defaultBorderRadious)),
-                ),
-                child: ListTile(
-                  leading: const Icon(Icons.location_on_outlined),
-                  title: Text(a.label),
-                  subtitle: Text("${a.line}\n${a.city}"),
-                  isThreeLine: true,
-                ),
-              );
-            },
+          return RadioGroup<String>(
+            groupValue: _selectedId,
+            onChanged: (v) => _choose(v, addresses),
+            child: ListView.separated(
+              padding: const EdgeInsets.all(defaultPadding),
+              itemCount: addresses.length,
+              separatorBuilder: (_, __) =>
+                  const SizedBox(height: defaultPadding / 2),
+              itemBuilder: (context, index) {
+                final a = addresses[index];
+                return Container(
+                  decoration: BoxDecoration(
+                    border:
+                        Border.all(color: Theme.of(context).dividerColor),
+                    borderRadius: const BorderRadius.all(
+                        Radius.circular(defaultBorderRadious)),
+                  ),
+                  child: RadioListTile<String>(
+                    value: a.id,
+                    title: Text(a.label),
+                    subtitle: Text(
+                        "${a.displayLine}\n${a.city}${a.pincode == null ? '' : ' · ${a.pincode}'}"),
+                    isThreeLine: true,
+                    secondary: const Icon(Icons.location_on_outlined),
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 8),
+                    dense: true,
+                  ),
+                );
+              },
+            ),
           );
         },
       ),
@@ -159,9 +199,23 @@ class _AddressesScreenState extends State<AddressesScreen> {
   void _openAddSheet() {
     final formKey = GlobalKey<FormState>();
     final label = TextEditingController();
-    final line = TextEditingController();
+    final house = TextEditingController();
+    final street = TextEditingController();
+    final area = TextEditingController();
     final city = TextEditingController();
+    final pincode = TextEditingController();
+    final phone = TextEditingController();
+    final lat = TextEditingController();
+    final lng = TextEditingController();
     bool saving = false;
+    void disposeAll() {
+      for (final c in [
+        label, house, street, area, city, pincode, phone, lat, lng
+      ]) {
+        c.dispose();
+      }
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -176,116 +230,195 @@ class _AddressesScreenState extends State<AddressesScreen> {
           ),
           child: Form(
             key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Add address",
-                  style: Theme.of(sheetContext)
-                      .textTheme
-                      .titleSmall!
-                      .copyWith(fontWeight: FontWeight.w600),
-                ),
-                const SizedBox(height: defaultPadding),
-                TextFormField(
-                  controller: label,
-                  textInputAction: TextInputAction.next,
-                  decoration:
-                      const InputDecoration(labelText: "Label (Home, Work)"),
-                  validator: (v) => v == null || v.trim().isEmpty
-                      ? "Label is required"
-                      : null,
-                ),
-                const SizedBox(height: defaultPadding / 2),
-                TextFormField(
-                  controller: line,
-                  textInputAction: TextInputAction.next,
-                  decoration:
-                      const InputDecoration(labelText: "Street address"),
-                  validator: (v) => v == null || v.trim().isEmpty
-                      ? "Street address is required"
-                      : null,
-                ),
-                const SizedBox(height: defaultPadding / 2),
-                TextFormField(
-                  controller: city,
-                  textInputAction: TextInputAction.done,
-                  decoration: const InputDecoration(labelText: "City"),
-                  validator: (v) => v == null || v.trim().isEmpty
-                      ? "City is required"
-                      : null,
-                ),
-                const SizedBox(height: defaultPadding),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: saving
-                        ? null
-                        : () async {
-                            if (!formKey.currentState!.validate()) {
-                              return;
-                            }
-                            setSheet(() => saving = true);
-                            try {
-                              await _repo.createAddress(
-                                label: label.text,
-                                line: line.text,
-                                city: city.text,
-                              );
-                              if (mounted) Navigator.pop(context);
-                              _reload();
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text("Address saved.")),
-                                );
-                              }
-                            } on AppException catch (e) {
-                              if (e.code == 'UNAUTHENTICATED' ||
-                                  e.status == 401) {
-                                if (mounted) Navigator.pop(context);
-                                await _goLogin();
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Add address",
+                    style: Theme.of(sheetContext)
+                        .textTheme
+                        .titleSmall!
+                        .copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: defaultPadding),
+                  TextFormField(
+                    controller: label,
+                    textInputAction: TextInputAction.next,
+                    decoration:
+                        const InputDecoration(labelText: "Label (Home, Work)"),
+                    validator: (v) => v == null || v.trim().isEmpty
+                        ? "Label is required"
+                        : null,
+                  ),
+                  const SizedBox(height: defaultPadding / 2),
+                  TextFormField(
+                    controller: house,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(
+                        labelText: "House / Flat (optional)"),
+                  ),
+                  const SizedBox(height: defaultPadding / 2),
+                  TextFormField(
+                    controller: street,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(
+                        labelText: "Street address"),
+                    validator: (v) => v == null || v.trim().isEmpty
+                        ? "Street address is required"
+                        : null,
+                  ),
+                  const SizedBox(height: defaultPadding / 2),
+                  TextFormField(
+                    controller: area,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(
+                        labelText: "Area (optional)"),
+                  ),
+                  const SizedBox(height: defaultPadding / 2),
+                  TextFormField(
+                    controller: city,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(labelText: "City"),
+                    validator: (v) => v == null || v.trim().isEmpty
+                        ? "City is required"
+                        : null,
+                  ),
+                  const SizedBox(height: defaultPadding / 2),
+                  TextFormField(
+                    controller: pincode,
+                    textInputAction: TextInputAction.next,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                        labelText: "Pincode (optional)"),
+                    validator: validatePincode,
+                  ),
+                  const SizedBox(height: defaultPadding / 2),
+                  TextFormField(
+                    controller: phone,
+                    textInputAction: TextInputAction.next,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(
+                        labelText: "Phone (optional)"),
+                    validator: validatePhone,
+                  ),
+                  const SizedBox(height: defaultPadding / 2),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: lat,
+                          textInputAction: TextInputAction.next,
+                          keyboardType:
+                              const TextInputType.numberWithOptions(
+                                  signed: true, decimal: true),
+                          decoration: const InputDecoration(
+                              labelText: "Lat (optional)"),
+                          validator: validateLat,
+                        ),
+                      ),
+                      const SizedBox(width: defaultPadding / 2),
+                      Expanded(
+                        child: TextFormField(
+                          controller: lng,
+                          textInputAction: TextInputAction.done,
+                          keyboardType:
+                              const TextInputType.numberWithOptions(
+                                  signed: true, decimal: true),
+                          decoration: const InputDecoration(
+                              labelText: "Lng (optional)"),
+                          validator: validateLng,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: defaultPadding),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: saving
+                          ? null
+                          : () async {
+                              if (!formKey.currentState!.validate()) {
                                 return;
                               }
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text(e.message)),
+                              setSheet(() => saving = true);
+                              try {
+                                final created =
+                                    await _repo.createAddress(
+                                  label: label.text,
+                                  line: street.text,
+                                  city: city.text,
+                                  house: house.text,
+                                  street: street.text,
+                                  area: area.text,
+                                  pincode: pincode.text,
+                                  phone: phone.text,
+                                  lat: double.tryParse(lat.text.trim()),
+                                  lng: double.tryParse(lng.text.trim()),
                                 );
+                                await _selection.select(created.id);
+                                if (mounted) {
+                                  setState(
+                                      () => _selectedId = created.id);
+                                  // 201 select: pop the new id so the
+                                  // Cart caller refreshes.
+                                  Navigator.pop(context, created.id);
+                                }
+                                _reload();
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context)
+                                      .showSnackBar(
+                                    const SnackBar(
+                                        content:
+                                            Text("Address saved.")),
+                                  );
+                                }
+                              } on AppException catch (e) {
+                                if (e.code == 'UNAUTHENTICATED' ||
+                                    e.status == 401) {
+                                  if (mounted) Navigator.pop(context);
+                                  await _goLogin();
+                                  return;
+                                }
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context)
+                                      .showSnackBar(
+                                    SnackBar(content: Text(e.message)),
+                                  );
+                                }
+                              } catch (_) {
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context)
+                                      .showSnackBar(
+                                    const SnackBar(
+                                        content: Text(
+                                            "Could not save. Try again.")),
+                                  );
+                                }
+                              } finally {
+                                setSheet(() => saving = false);
                               }
-                            } catch (_) {
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text(
-                                          "Could not save. Try again.")),
-                                );
-                              }
-                            } finally {
-                              setSheet(() => saving = false);
-                            }
-                          },
-                    child: saving
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Text("Save address"),
+                            },
+                      child: saving
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text("Save address"),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
       ),
-    ).whenComplete(() {
-      label.dispose();
-      line.dispose();
-      city.dispose();
-    });
+    ).whenComplete(disposeAll);
   }
 }

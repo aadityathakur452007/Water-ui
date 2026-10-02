@@ -28,6 +28,22 @@ if (!subCols.includes("skip_next")) {
 if (!subCols.includes("days")) {
   db.exec("ALTER TABLE subscriptions ADD COLUMN days TEXT");
 }
+// Migration 0003_addresses: extended address columns (idempotent;
+// plain ALTER is D1-portable; mirrors backend/migrations/0003_addresses.sql).
+const addrCols = (db.query("PRAGMA table_info(addresses)").all() as Row[]).map((c) => c.name);
+for (const [col, type] of [
+  ["house", "TEXT"],
+  ["street", "TEXT"],
+  ["area", "TEXT"],
+  ["pincode", "TEXT"],
+  ["phone", "TEXT"],
+  ["lat", "REAL"],
+  ["lng", "REAL"],
+] as const) {
+  if (!addrCols.includes(col)) {
+    db.exec(`ALTER TABLE addresses ADD COLUMN ${col} ${type}`);
+  }
+}
 await seedIfEmpty(db);
 
 // ---------- Bun-backed DbClient (async wrappers over sync bun:sqlite) ----------

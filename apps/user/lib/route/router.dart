@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:shop/constants.dart';
 import 'package:shop/entry_point.dart';
+import 'package:shop/screens/vendor/vendor_customer_detail_screen.dart';
+import 'package:shop/screens/vendor/vendor_customers_screen.dart';
+import 'package:shop/screens/vendor/vendor_earnings_screen.dart';
+import 'package:shop/screens/vendor/vendor_inventory_screen.dart';
+import 'package:shop/services/vendor_service.dart';
 
 import 'screen_export.dart';
 
@@ -329,6 +334,38 @@ Route<dynamic> generateRoute(RouteSettings settings) {
     case vendorHomeScreenRoute:
       return MaterialPageRoute(
         builder: (context) => const VendorHomeScreen(),
+      );
+    case vendorCustomersScreenRoute:
+      return MaterialPageRoute(
+        builder: (context) => const VendorCustomersScreen(
+            service: VendorService()),
+      );
+    case vendorCustomerDetailScreenRoute:
+      return MaterialPageRoute(
+        builder: (context) {
+          final args = settings.arguments;
+          if (args is VendorCustomer) {
+            return VendorCustomerDetailScreen(customer: args);
+          }
+          return Scaffold(
+            appBar: AppBar(title: const Text('Customer')),
+            body: const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'Customer not found. Open a customer from the customers list.',
+              ),
+            ),
+          );
+        },
+      );
+    case vendorEarningsScreenRoute:
+      return MaterialPageRoute(
+        builder: (context) =>
+            const VendorEarningsScreen(service: VendorService()),
+      );
+    case vendorInventoryScreenRoute:
+      return MaterialPageRoute(
+        builder: (context) => const VendorInventoryScreen(),
       );
     // case paymentMethodScreenRoute:
     //   return MaterialPageRoute(

@@ -4,8 +4,11 @@ import 'package:shop/route/route_constants.dart';
 import 'package:shop/services/auth_service.dart';
 import 'package:shop/services/vendor_service.dart';
 
+import 'vendor_customers_screen.dart';
 import 'vendor_dashboard_screen.dart';
 import 'vendor_deliveries_screen.dart';
+import 'vendor_earnings_screen.dart';
+import 'vendor_inventory_screen.dart';
 import 'vendor_orders_screen.dart';
 import 'vendor_settings_screen.dart';
 
@@ -67,9 +70,20 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
       VendorOrdersScreen(
           service: _service, onViewDashboard: () => _goTab(0)),
       VendorDeliveriesScreen(service: _service),
+      VendorCustomersScreen(service: _service, showAppBar: false),
+      VendorEarningsScreen(service: _service, showAppBar: false),
+      const VendorInventoryScreen(showAppBar: false),
       const VendorSettingsScreen(),
     ];
-    const titles = ['Dashboard', 'Orders', 'Deliveries', 'Settings'];
+    const titles = [
+      'Dashboard',
+      'Orders',
+      'Deliveries',
+      'Customers',
+      'Earnings',
+      'Inventory',
+      'Settings'
+    ];
     return Scaffold(
       appBar: AppBar(
         title: Text(titles[_index]),
@@ -94,6 +108,12 @@ class _VendorHomeScreenState extends State<VendorHomeScreen> {
               icon: Icon(Icons.local_shipping), label: 'Orders'),
           BottomNavigationBarItem(
               icon: Icon(Icons.repeat), label: 'Deliveries'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.group), label: 'Customers'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.payments), label: 'Earnings'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.inventory), label: 'Inventory'),
           BottomNavigationBarItem(
               icon: Icon(Icons.settings), label: 'Settings'),
         ],

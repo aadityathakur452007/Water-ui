@@ -14,12 +14,60 @@ class DeliveryAddress {
   final String label;
   final String line;
   final String city;
+  final String? house;
+  final String? street;
+  final String? area;
+  final String? pincode;
+  final String? phone;
+  final double? lat;
+  final double? lng;
 
   const DeliveryAddress({
     required this.label,
     required this.line,
     required this.city,
+    this.house,
+    this.street,
+    this.area,
+    this.pincode,
+    this.phone,
+    this.lat,
+    this.lng,
   });
+
+  /// Full address line: extended parts when present, else legacy [line].
+  String get displayLine {
+    final parts = [house, street, area]
+        .where((e) => e?.trim().isNotEmpty ?? false)
+        .map((e) => e!.trim())
+        .toList();
+    return parts.isEmpty ? line : parts.join(', ');
+  }
+
+  factory DeliveryAddress.fromJson(Map<String, dynamic> json) {
+    double? numOrNull(dynamic v) {
+      if (v == null || (v is String && v.trim().isEmpty)) return null;
+      return (v as num?)?.toDouble() ?? double.tryParse(v.toString());
+    }
+
+    String? strOrNull(dynamic v) {
+      final s = v?.toString().trim() ?? '';
+      return s.isEmpty ? null : s;
+    }
+
+    return DeliveryAddress(
+      label: json['label']?.toString() ?? 'Home',
+      line: json['line']?.toString() ?? '',
+      city: json['city']?.toString() ?? '',
+      house: strOrNull(json['house']),
+      street: strOrNull(json['street']),
+      area: strOrNull(json['area']),
+      pincode: strOrNull(json['pincode']),
+      phone: strOrNull(json['phone']),
+      lat: numOrNull(json['lat']),
+      lng: numOrNull(json['lng']),
+    );
+  }
 }
 
 const defaultAddress = DeliveryAddress(
@@ -120,11 +168,8 @@ class Order {
         : <OrderItem>[];
     final rawAddress = json['address'];
     final address = rawAddress is Map
-        ? DeliveryAddress(
-            label: rawAddress['label']?.toString() ?? 'Home',
-            line: rawAddress['line']?.toString() ?? '',
-            city: rawAddress['city']?.toString() ?? '',
-          )
+        ? DeliveryAddress.fromJson(
+            Map<String, dynamic>.from(rawAddress))
         : defaultAddress;
     return Order(
       id: json['id']?.toString() ?? '',

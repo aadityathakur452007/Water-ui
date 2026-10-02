@@ -34,6 +34,13 @@ const demoAddresses = [
     'label': 'Home',
     'line': '123, Example Colony',
     'city': 'Bhopal',
+    'house': '123',
+    'street': 'Example Colony',
+    'area': 'Arera Colony',
+    'pincode': '462016',
+    'phone': '9000000001',
+    'lat': 23.2599,
+    'lng': 77.4126,
   },
 ];
 

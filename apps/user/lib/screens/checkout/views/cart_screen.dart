@@ -13,6 +13,7 @@ import 'package:shop/repositories/subscription_repository.dart';
 import 'package:shop/route/route_constants.dart';
 import 'package:shop/services/api_client.dart';
 import 'package:shop/services/auth_service.dart';
+import 'package:shop/store/selected_address_store.dart';
 
 enum _Payment { cod, upi }
 
@@ -53,9 +54,15 @@ class _CartScreenState extends State<CartScreen> {
     try {
       final list = await const AddressRepository().fetchAddresses();
       if (!mounted) return;
+      // SelectedAddressStore sync: persisted id wins when still valid,
+      // else fall back to the first address (persisted for next launch).
+      final store = SelectedAddressStore();
+      await store.load();
+      final ids = list.map((a) => a.id).toList();
+      final synced = await store.syncWith(ids);
       setState(() {
         _addresses = list;
-        _selectedAddressId = list.isEmpty ? null : list.first.id;
+        _selectedAddressId = synced;
         _loadingAddresses = false;
       });
     } on AppException catch (e) {
@@ -399,8 +406,10 @@ class _CartScreenState extends State<CartScreen> {
                     ),
                   RadioGroup<String>(
                     groupValue: _selectedAddressId,
-                    onChanged: (v) =>
-                        setState(() => _selectedAddressId = v),
+                    onChanged: (v) {
+                      setState(() => _selectedAddressId = v);
+                      SelectedAddressStore().select(v);
+                    },
                     child: Column(
                       children: [
                         for (final a in _addresses)
@@ -418,8 +427,22 @@ class _CartScreenState extends State<CartScreen> {
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
-                      onPressed: () => Navigator.pushNamed(
-                          context, addressesScreenRoute),
+                      // Address refresh: await the pushed route, reload on
+                      // return, and honor the popped selectedId.
+                      onPressed: () async {
+                        final selected = await Navigator.pushNamed(
+                          context,
+                          addressesScreenRoute,
+                          arguments: _selectedAddressId,
+                        );
+                        await _loadAddresses();
+                        if (!mounted) return;
+                        if (selected is String && selected.isNotEmpty) {
+                          setState(
+                              () => _selectedAddressId = selected);
+                          await SelectedAddressStore().select(selected);
+                        }
+                      },
                       child: const Text("Add / Change"),
                     ),
                   ),
@@ -481,8 +504,17 @@ class _CartScreenState extends State<CartScreen> {
             ),
           ),
           TextButton(
-            onPressed: () =>
-                Navigator.pushNamed(context, addressesScreenRoute),
+            // Address refresh: await the pushed route + reload on return.
+            onPressed: () async {
+              final selected = await Navigator.pushNamed(
+                  context, addressesScreenRoute);
+              await _loadAddresses();
+              if (!mounted) return;
+              if (selected is String && selected.isNotEmpty) {
+                setState(() => _selectedAddressId = selected);
+                await SelectedAddressStore().select(selected);
+              }
+            },
             child: const Text("Change"),
           ),
         ],
