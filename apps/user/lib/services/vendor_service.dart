@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../config/app_config.dart';
 import '../config/demo_store.dart';
 import '../screens/vendor/vendor_order.dart';
@@ -354,5 +356,268 @@ class VendorService {
         .map((e) => VendorSubscription.fromJson(
             Map<String, dynamic>.from(e)))
         .toList();
+  }
+
+  // --- Slice 1: server vendor profile + support tickets (append-only) ---
+
+  Future<VendorProfile> fetchProfile() async {
+    if (AppConfig.demoMode) return VendorProfile.empty;
+    final api = await _client();
+    final body = await api.get('/api/vendor/profile');
+    // Accept `{profile: {...}}` or a bare profile object.
+    final raw = body is Map && body['profile'] is Map
+        ? body['profile'] as Map
+        : body;
+    if (raw is! Map) return VendorProfile.empty;
+    return VendorProfile.fromJson(Map<String, dynamic>.from(raw));
+  }
+
+  Future<VendorProfile> saveProfile(VendorProfile profile) async {
+    if (AppConfig.demoMode) return profile;
+    final api = await _client();
+    final body =
+        await api.patch('/api/vendor/profile', body: profile.toJson());
+    final raw = body is Map && body['profile'] is Map
+        ? body['profile'] as Map
+        : body;
+    if (raw is! Map) return profile;
+    return VendorProfile.fromJson(Map<String, dynamic>.from(raw));
+  }
+
+  Future<Map<String, bool>> fetchSlots() async {
+    if (AppConfig.demoMode) return const {};
+    final api = await _client();
+    final body = await api.get('/api/vendor/slots');
+    return parseVendorSlots(body);
+  }
+
+  Future<void> saveSlots(Map<String, bool> slots) async {
+    if (AppConfig.demoMode) return;
+    final api = await _client();
+    await api.put('/api/vendor/slots', body: {'slots': slots});
+  }
+
+  Future<List<VendorTicket>> fetchTickets() async {
+    if (AppConfig.demoMode) return const [];
+    final api = await _client();
+    final body = await api.get('/api/vendor/tickets');
+    final list = body is List ? body : (body as Map)['tickets'];
+    if (list is! List) return const [];
+    return list
+        .whereType<Map>()
+        .map((e) =>
+            VendorTicket.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+  }
+
+  Future<VendorTicket> openTicket(
+      {required String subject, required String message}) async {
+    if (AppConfig.demoMode) {
+      throw const AppException(
+          'UNKNOWN', 'Support tickets need the live server.');
+    }
+    final api = await _client();
+    final body = await api.post('/api/vendor/tickets',
+        body: {'subject': subject});
+    final raw = body is Map && body['ticket'] is Map
+        ? body['ticket'] as Map
+        : body;
+    if (raw is! Map) {
+      throw const AppException('UNKNOWN', 'Could not open the ticket.');
+    }
+    final created =
+        VendorTicket.fromJson(Map<String, dynamic>.from(raw));
+    // The ticket endpoint takes subject only — the opening message rides
+    // as the first reply so nothing the vendor typed is lost.
+    await addReply(created.id, message);
+    return fetchTicket(created.id);
+  }
+
+  Future<VendorTicket> fetchTicket(String id) async {
+    if (AppConfig.demoMode) {
+      throw const AppException(
+          'UNKNOWN', 'Support tickets need the live server.');
+    }
+    final api = await _client();
+    final body = await api.get('/api/vendor/tickets/$id');
+    final raw = body is Map && body['ticket'] is Map
+        ? body['ticket'] as Map
+        : body;
+    if (raw is! Map) {
+      throw const AppException('NOT_FOUND', 'Ticket not found');
+    }
+    return VendorTicket.fromJson(Map<String, dynamic>.from(raw));
+  }
+
+  Future<TicketReply> addReply(String ticketId, String bodyText) async {
+    if (AppConfig.demoMode) {
+      throw const AppException(
+          'UNKNOWN', 'Support tickets need the live server.');
+    }
+    final api = await _client();
+    final body = await api.post('/api/vendor/tickets/$ticketId/replies',
+        body: {'body': bodyText});
+    final raw = body is Map && body['reply'] is Map
+        ? body['reply'] as Map
+        : body;
+    if (raw is! Map) {
+      throw const AppException('UNKNOWN', 'Could not send the reply.');
+    }
+    return TicketReply.fromJson(Map<String, dynamic>.from(raw));
+  }
+}
+
+/// The vendor's own business profile (`GET`/`PATCH /api/vendor/profile`).
+/// Vendor PII rule unchanged: this is the vendor's own row, never
+/// cross-user data.
+class VendorProfile {
+  final String name;
+  final String phone;
+  final String address;
+  final String hours;
+
+  const VendorProfile({
+    this.name = '',
+    this.phone = '',
+    this.address = '',
+    this.hours = '',
+  });
+
+  static const empty = VendorProfile();
+
+  factory VendorProfile.fromJson(Map<String, dynamic> json) =>
+      VendorProfile(
+        name: '${json['name'] ?? ''}',
+        phone: '${json['phone'] ?? ''}',
+        address: '${json['address'] ?? ''}',
+        hours: '${json['hours'] ?? ''}',
+      );
+
+  Map<String, String> toJson() => {
+        'name': name,
+        'phone': phone,
+        'address': address,
+        'hours': hours,
+      };
+
+  VendorProfile copyWith({
+    String? name,
+    String? phone,
+    String? address,
+    String? hours,
+  }) =>
+      VendorProfile(
+        name: name ?? this.name,
+        phone: phone ?? this.phone,
+        address: address ?? this.address,
+        hours: hours ?? this.hours,
+      );
+}
+
+/// Client-side profile validation (the server allowlist re-checks on
+/// PATCH; a 409/VALIDATION there maps back to these same field keys).
+/// Returns field → message; empty means valid.
+Map<String, String> validateVendorProfile({
+  required String name,
+  required String phone,
+}) {
+  final errors = <String, String>{};
+  if (name.trim().isEmpty) {
+    errors['name'] = 'Enter the business name.';
+  }
+  final digits = phone.replaceAll(RegExp(r'\D'), '');
+  if (phone.trim().isEmpty) {
+    errors['phone'] = 'Enter a contact phone.';
+  } else if (digits.length < 7) {
+    errors['phone'] = 'Enter a valid phone number.';
+  }
+  return errors;
+}
+
+/// Tolerantly parses `GET /api/vendor/slots` in either shape:
+/// a `{slots: [{slot_key, enabled}]}` list or a `{label: bool}` map.
+/// Unknown shapes yield `{}` (never fake slot state).
+Map<String, bool> parseVendorSlots(dynamic body) {
+  final out = <String, bool>{};
+  final list =
+      body is List ? body : (body is Map ? body['slots'] : null);
+  if (list is List) {
+    for (final e in list.whereType<Map>()) {
+      final key =
+          '${e['slot_key'] ?? e['key'] ?? e['slot'] ?? ''}';
+      if (key.isEmpty) continue;
+      final v = e['enabled'];
+      out[key] = v is bool ? v : v.toString() == 'true';
+    }
+    return out;
+  }
+  if (body is Map) {
+    for (final e in body.entries) {
+      if (e.key == 'slots') continue;
+      final v = e.value;
+      out['${e.key}'] = v is bool ? v : v.toString() == 'true';
+    }
+  }
+  return out;
+}
+
+class TicketReply {
+  final String id;
+  final String ticketId;
+  final String author;
+  final String body;
+  final String createdAt;
+
+  const TicketReply({
+    this.id = '',
+    this.ticketId = '',
+    this.author = '',
+    this.body = '',
+    this.createdAt = '',
+  });
+
+  factory TicketReply.fromJson(Map<String, dynamic> json) => TicketReply(
+        id: '${json['id'] ?? ''}',
+        ticketId:
+            '${json['ticket_id'] ?? json['ticketId'] ?? ''}',
+        author: '${json['author'] ?? ''}',
+        body: '${json['body'] ?? json['message'] ?? ''}',
+        createdAt:
+            '${json['created_at'] ?? json['createdAt'] ?? ''}',
+      );
+}
+
+/// A support ticket scoped to the vendor (`vendor_id = me` server-side).
+class VendorTicket {
+  final String id;
+  final String subject;
+  final String status;
+  final String createdAt;
+  final List<TicketReply> replies;
+
+  const VendorTicket({
+    this.id = '',
+    this.subject = '',
+    this.status = '',
+    this.createdAt = '',
+    this.replies = const [],
+  });
+
+  factory VendorTicket.fromJson(Map<String, dynamic> json) {
+    final rawReplies = json['replies'];
+    return VendorTicket(
+      id: '${json['id'] ?? ''}',
+      subject: '${json['subject'] ?? ''}',
+      status: '${json['status'] ?? ''}',
+      createdAt:
+          '${json['created_at'] ?? json['createdAt'] ?? ''}',
+      replies: rawReplies is List
+          ? rawReplies
+              .whereType<Map>()
+              .map((e) => TicketReply.fromJson(
+                  Map<String, dynamic>.from(e)))
+              .toList()
+          : const [],
+    );
   }
 }

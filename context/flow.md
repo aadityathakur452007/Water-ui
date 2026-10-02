@@ -266,7 +266,6 @@ POST /api/orders → createOrder (backend/src/index.ts)
 ---
 
 ## Vendor-missing build — Actual (Flutter + Hono, 2026-10-02, ADR-030)
-
 ```
 Location: Home [Use current location] → LocationService.resolveCurrentAddress()
   (isServiceEnabled→openLocationSettings | check/request→openAppSettings on
@@ -282,6 +281,29 @@ Vendor new tabs (VendorHome idx 3-5 + Settings last): Customers (group fetchOrde
   ₹10 fee-split note) / Inventory (GET /api/products + available badges, read-only)
 Backend: addresses ADD COLUMN ×7 (0003_addresses.sql + index.ts runtime guard);
   addressFieldError allowlist; toAddressJson projection incl. vendor detail.
+
+## Slice 1 — Server vendor profile/tickets (2026-10-02, ADR-031)
+```
+Settings (live): open → GET /api/vendor/profile (lazy ensure) + GET /api/vendor/slots
+  (seed defaults when empty) → skeleton/error-retry; save → dirty/disabled →
+  PATCH/PUT → toast + synced label | 409/NETWORK → keep values + revert snapshot
+Tickets: Settings → Support tickets → GET /api/vendor/tickets → open sheet
+  (subject+message) → POST ticket + POST first reply + refetch → detail thread
+  → reply box → POST replies. Demo: honest empty/refusal, device-local intact.
+Tables: vendor_profile / vendor_slots / support_tickets / ticket_replies
+  (0004_vendor_profile.sql + index.ts guard; D1 remote apply is user-run).
+```
+
+## Slice 3 — Keyless maps (2026-10-02, ADR-032)
+```
+Picker: address sheet [Pick on map] → address_map_picker (locate via
+  LocationService → camera at fix → move-map center pin → Confirm reads center
+  → reverse-geocode → pop {lat,lng,label,street,area,city,pincode} → sheet
+  prefills nonempty only) | tile-fail → chip, manual fields always work.
+Tracking: order row/sheet [Track] → direct push OrderTrackingScreen(order) →
+  OSM pin at address lat/lng + coord line + OrderProgress timeline |
+  null coords → honest empty (never 0,0 pin).
+Deps: flutter_map 8.3.2 + latlong2 (OSM `tile.openstreetmap.org`, UA `shop`).
 ```
 
 ## CI Pipeline (GitHub Actions, 2026-09-24)

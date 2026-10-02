@@ -35,6 +35,8 @@
 
 | ID | Date | Decision | Status | Affects |
 |----|------|----------|--------|---------|
+| ADR-032 | 2026-10-02 | Slice 3: keyless flutter_map+OSM picker + order tracking (no Google key/billing) | Accepted | address_map_picker, order_tracking, pubspec flutter_map/latlong2 |
+| ADR-031 | 2026-10-02 | Slice 1: server vendor profile/slots/tickets, ApiClient.put, ticket message as first reply | Accepted | backend profile/slots/tickets, vendor settings+tickets screens, api_client |
 | ADR-030 | 2026-10-02 | Vendor-missing build: GPS permission+service, full address format, vendor customers/earnings/inventory, live-first | Accepted | location_service+manifest+address repo/store/backend addresses+vendor screens+theme |
 | ADR-029 | 2026-09-27 | Orders grouped list + recurrence rows, first-run onboarding, session routing, States.md pass | Accepted | orders screen, boot/entry/auth routing, order_grouping, 2 test files |
 | ADR-028 | 2026-09-27 | Experience pass: custom-day schedules, vendor 8-KPI redesign + settings, order photos, cross-sell, water nav, account/help | Accepted | apps/user user+vendor screens, subscription days, backend days column |
@@ -84,6 +86,26 @@
 ---
 
 ## Decision Entries
+
+### ADR-032: Slice 3 — keyless maps (flutter_map + OSM, no Google key)
+- **Date**: 2026-10-02
+- **Status**: Accepted
+- **Context**: Google Maps keys need billing-enabled Cloud project, which the user refuses. Firebase config is absent from the repo (verified: no google-services.json/plist/deps anywhere).
+- **Options considered**: google_maps_flutter (rejected — billing requirement); static lat/lng text only (rejected — picker UX worth the free OSM path).
+- **Decision**: `flutter_map 8.3.2` + `latlong2` direct dep; center-pin picker + order tracking with honest null-coords/tile-fail states; direct-push navigation for tracking (router untouched by second agent).
+- **Why**: Zero key, zero billing, OSM tile policy fits our volume; native `geocoding` stays keyless.
+- **Consequences**: OSM tiles need network (offline → honest chip); no Google POI autocomplete.
+- **Affects**: `pubspec (flutter_map/latlong2)`, `address_map_picker_screen`, `addresses_screen (Pick button)`, `order_tracking_screen`, `orders_screen (Track wiring)`, 2 new test files
+
+### ADR-031: Slice 1 — server vendor profile/slots/tickets
+- **Date**: 2026-10-02
+- **Status**: Accepted
+- **Context**: Vendor settings were device-local; support was a static card; Flutter slot-save used a rejected payload shape and dropped the opening ticket message via raw HTTP bypassing ApiClient.
+- **Options considered**: New bottom-nav Tickets tab (rejected — 8 tabs crowd 44px touch floor; link from Settings instead); keeping days server-synced too (deferred — slots sync, days stay labeled device-local); raw PUT in service (rejected — added `ApiClient.put` so timeout/auth/401 stay uniform).
+- **Decision**: 4 tables + 8 endpoints under existing vendor 403 guard (lazy profile ensure, merge-upsert slots, 404-not-403 ticket reads); `openTicket` = create + first-reply + refetch; `PUT {slots:{}}` map shape.
+- **Why**: Additive migration (`0004`), no contract break; server truth proven live (PATCH→GET persists across sessions).
+- **Consequences**: 121/121 tests; D1 remote apply is user-run (`wrangler d1 execute --file=./migrations/0004_vendor_profile.sql`).
+- **Affects**: `backend/schema/migrations-0004/app/index`, `api_client`, `vendor_service`, `vendor_settings+tickets` screens/routes, `test/vendor_profile_test.dart`
 
 ### ADR-030: Vendor-missing build — location, full address, vendor pages, live-first
 - **Date**: 2026-10-02

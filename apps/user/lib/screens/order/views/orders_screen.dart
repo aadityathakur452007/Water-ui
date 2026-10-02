@@ -12,6 +12,7 @@ import 'package:shop/repositories/product_repository.dart';
 import 'package:shop/repositories/subscription_repository.dart';
 import 'package:shop/route/route_constants.dart';
 import 'package:shop/screens/order/views/order_grouping.dart';
+import 'package:shop/screens/order/views/order_tracking_screen.dart';
 import 'package:shop/services/api_client.dart';
 import 'package:shop/services/auth_service.dart';
 
@@ -737,6 +738,16 @@ class _OrderCard extends StatelessWidget {
                             onPressed: onReorder,
                             child: const Text("Reorder"),
                           ),
+                        TextButton(
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  OrderTrackingScreen(order: order),
+                            ),
+                          ),
+                          child: const Text("Track"),
+                        ),
                         OutlinedButton(
                           onPressed: onOpen,
                           child: const Text("View"),
@@ -866,6 +877,20 @@ class _OrderDetailSheet extends StatelessWidget {
           // consistent.
           UiTimeline(items: _timelineItems(order)),
           const SizedBox(height: defaultPadding),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => OrderTrackingScreen(order: order),
+                ),
+              ),
+              icon: const Icon(Icons.map_outlined),
+              label: const Text('Track on map'),
+            ),
+          ),
+          const SizedBox(height: defaultPadding / 2),
           _PairFooter(order: order),
         ],
       ),

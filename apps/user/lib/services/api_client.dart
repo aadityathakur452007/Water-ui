@@ -95,6 +95,16 @@ class ApiClient {
     return _decode(res);
   }
 
+  Future<dynamic> put(String path, {Object? body}) async {
+    final uri = Uri.parse('$baseUrl$path');
+    final res = await _send(_http.put(
+      uri,
+      headers: _headers(),
+      body: body == null ? null : jsonEncode(body),
+    ));
+    return _decode(res);
+  }
+
   void close() => _http.close();
 
   /// 15s ceiling per request: a hanging server becomes a typed error

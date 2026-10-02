@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:shop/constants.dart';
 import 'package:shop/entry_point.dart';
+import 'package:shop/screens/address/views/address_map_picker_screen.dart';
 import 'package:shop/screens/vendor/vendor_customer_detail_screen.dart';
 import 'package:shop/screens/vendor/vendor_customers_screen.dart';
 import 'package:shop/screens/vendor/vendor_earnings_screen.dart';
 import 'package:shop/screens/vendor/vendor_inventory_screen.dart';
+import 'package:shop/screens/vendor/vendor_ticket_detail_screen.dart';
+import 'package:shop/screens/vendor/vendor_tickets_screen.dart';
 import 'package:shop/services/vendor_service.dart';
 
 import 'screen_export.dart';
@@ -252,6 +255,10 @@ Route<dynamic> generateRoute(RouteSettings settings) {
       return MaterialPageRoute(
         builder: (context) => const AddressesScreen(),
       );
+    case addressMapPickerScreenRoute:
+      return MaterialPageRoute(
+        builder: (context) => const AddressMapPickerScreen(),
+      );
     // case addNewAddressesScreenRoute:
     //   return MaterialPageRoute(
     //     builder: (context) => const AddNewAddressScreen(),
@@ -366,6 +373,32 @@ Route<dynamic> generateRoute(RouteSettings settings) {
     case vendorInventoryScreenRoute:
       return MaterialPageRoute(
         builder: (context) => const VendorInventoryScreen(),
+      );
+    case vendorTicketsScreenRoute:
+      return MaterialPageRoute(
+        builder: (context) => const VendorTicketsScreen(),
+      );
+    case vendorTicketDetailScreenRoute:
+      return MaterialPageRoute(
+        builder: (context) {
+          final args = settings.arguments;
+          if (args is VendorTicket) {
+            return VendorTicketDetailScreen(
+                ticket: args, ticketId: args.id);
+          }
+          if (args is String && args.isNotEmpty) {
+            return VendorTicketDetailScreen(ticketId: args);
+          }
+          return Scaffold(
+            appBar: AppBar(title: const Text('Ticket')),
+            body: const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'Ticket not found. Open a ticket from the tickets list.',
+              ),
+            ),
+          );
+        },
       );
     // case paymentMethodScreenRoute:
     //   return MaterialPageRoute(

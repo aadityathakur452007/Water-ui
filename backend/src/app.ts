@@ -539,6 +539,160 @@ export function createApp(db: DbClient, auth: AuthHasher) {
     return c.json(toSub(row));
   }
 
+  // ---------- handlers: vendor profile / slots / tickets (Slice 1, additive) ----------
+  // Minimum code: plain functions over the injected DbClient, authz from
+  // c.get("user") (service layer, never client-supplied ids), allowlist
+  // validation, parameterized queries only. All routes sit under the
+  // existing /api/vendor/* 403 guard above.
+  const VENDOR_DEFAULT_SLOTS = ["Morning \u2022 8:00 AM", "Noon \u2022 12:00 PM", "Evening \u2022 6:00 PM"];
+  const VENDOR_DEFAULT_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const VENDOR_DAY_SET = new Set(VENDOR_DEFAULT_DAYS);
+  const VENDOR_PROFILE_FIELDS = new Set(["name", "phone", "address", "hours"]);
+
+  async function ensureVendorProfile(userId: number) {
+    await db.run("INSERT OR IGNORE INTO vendor_profile (user_id) VALUES (?)", userId);
+  }
+
+  function toSlotsJson(rows: Row[]) {
+    const slots: Record<string, boolean> = {};
+    const days: Record<string, boolean> = {};
+    for (const r of rows) {
+      const k = String(r.slot_key);
+      const v = Boolean(r.enabled);
+      if (VENDOR_DAY_SET.has(k)) days[k] = v;
+      else slots[k] = v;
+    }
+    return { slots, days };
+  }
+
+  async function getVendorProfile(c: Ctx) {
+    const user = c.get("user");
+    await ensureVendorProfile(user.id);
+    const p = (await db.one("SELECT name, phone, address, hours FROM vendor_profile WHERE user_id = ?", user.id)) as Row;
+    return c.json({ name: p.name ?? "", phone: p.phone ?? "", address: p.address ?? "", hours: p.hours ?? "" });
+  }
+
+  async function patchVendorProfile(c: Ctx) {
+    const user = c.get("user");
+    const body = await readJson(c);
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return c.json(err("VALIDATION", "nothing to update"), 400);
+    }
+    const patch: string[] = [];
+    const params: any[] = [];
+    for (const key of VENDOR_PROFILE_FIELDS) {
+      if (body[key] === undefined) continue;
+      if (typeof body[key] !== "string") return c.json(err("VALIDATION", `${key} must be a string`), 400);
+      const v = (body[key] as string).trim();
+      if (key === "phone" && v !== "" && !/^[0-9]{10}$/.test(v)) {
+        return c.json(err("VALIDATION", "phone must be 10 digits"), 400);
+      }
+      patch.push(`${key} = ?`);
+      params.push(v);
+    }
+    if (patch.length === 0) return c.json(err("VALIDATION", "nothing to update"), 400);
+    await ensureVendorProfile(user.id);
+    await db.run(`UPDATE vendor_profile SET ${patch.join(", ")} WHERE user_id = ?`, ...params, user.id);
+    const p = (await db.one("SELECT name, phone, address, hours FROM vendor_profile WHERE user_id = ?", user.id)) as Row;
+    return c.json({ name: p.name ?? "", phone: p.phone ?? "", address: p.address ?? "", hours: p.hours ?? "" });
+  }
+
+  async function getVendorSlots(c: Ctx) {
+    const user = c.get("user");
+    const rows = await db.all("SELECT slot_key, enabled FROM vendor_slots WHERE user_id = ?", user.id);
+    if (rows.length === 0) {
+      for (const k of [...VENDOR_DEFAULT_SLOTS, ...VENDOR_DEFAULT_DAYS]) {
+        await db.run("INSERT OR IGNORE INTO vendor_slots (user_id, slot_key, enabled) VALUES (?, ?, 1)", user.id, k);
+      }
+      const slots: Record<string, boolean> = {};
+      const days: Record<string, boolean> = {};
+      for (const k of VENDOR_DEFAULT_SLOTS) slots[k] = true;
+      for (const k of VENDOR_DEFAULT_DAYS) days[k] = true;
+      return c.json({ slots, days });
+    }
+    return c.json(toSlotsJson(rows));
+  }
+
+  function slotsMapError(v: unknown): string | null {
+    if (v === undefined) return null;
+    if (!v || typeof v !== "object" || Array.isArray(v)) return "slot values must be booleans";
+    for (const val of Object.values(v as Record<string, unknown>)) {
+      if (typeof val !== "boolean") return "slot values must be booleans";
+    }
+    return null;
+  }
+
+  async function putVendorSlots(c: Ctx) {
+    const user = c.get("user");
+    const body = await readJson(c);
+    const sErr = slotsMapError(body?.slots);
+    if (sErr) return c.json(err("VALIDATION", sErr), 400);
+    const dErr = slotsMapError(body?.days);
+    if (dErr) return c.json(err("VALIDATION", dErr), 400);
+    if (body?.slots === undefined && body?.days === undefined) {
+      return c.json(err("VALIDATION", "nothing to update"), 400);
+    }
+    const entries: [string, boolean][] = [];
+    for (const m of [body?.slots, body?.days]) {
+      if (m === undefined) continue;
+      for (const [k, v] of Object.entries(m as Record<string, boolean>)) entries.push([k, v]);
+    }
+    for (const [k, v] of entries) {
+      await db.run(
+        "INSERT INTO vendor_slots (user_id, slot_key, enabled) VALUES (?, ?, ?) ON CONFLICT(user_id, slot_key) DO UPDATE SET enabled = excluded.enabled",
+        user.id, k, v ? 1 : 0
+      );
+    }
+    const rows = await db.all("SELECT slot_key, enabled FROM vendor_slots WHERE user_id = ?", user.id);
+    return c.json(toSlotsJson(rows));
+  }
+
+  async function listVendorTickets(c: Ctx) {
+    const user = c.get("user");
+    const rows = await db.all(
+      "SELECT t.id, t.subject, t.status, t.created_at, (SELECT COUNT(*) FROM ticket_replies r WHERE r.ticket_id = t.id) AS reply_count FROM support_tickets t WHERE t.vendor_id = ? ORDER BY t.id DESC",
+      user.id
+    );
+    return c.json(rows.map((t) => ({
+      id: t.id, subject: t.subject, status: t.status, created_at: t.created_at, reply_count: Number(t.reply_count ?? 0),
+    })));
+  }
+
+  async function createVendorTicket(c: Ctx) {
+    const user = c.get("user");
+    const body = await readJson(c);
+    const subject = typeof body?.subject === "string" ? body.subject.trim() : "";
+    if (!subject) return c.json(err("VALIDATION", "subject is required"), 400);
+    if (subject.length > 200) return c.json(err("VALIDATION", "subject must be at most 200 characters"), 400);
+    const now = new Date().toISOString();
+    const r = await db.run("INSERT INTO support_tickets (vendor_id, subject, status, created_at) VALUES (?, ?, 'open', ?)", user.id, subject, now);
+    const t = (await db.one("SELECT id, subject, status, created_at FROM support_tickets WHERE id = ?", Number(r.lastInsertRowid))) as Row;
+    return c.json({ id: t.id, subject: t.subject, status: t.status, created_at: t.created_at }, 201);
+  }
+
+  async function getVendorTicket(c: Ctx) {
+    const user = c.get("user");
+    const t = await db.one("SELECT id, subject, status, created_at FROM support_tickets WHERE id = ? AND vendor_id = ?", Number(c.req.param("id")), user.id);
+    if (!t) return c.json(err("NOT_FOUND", "Ticket not found"), 404);
+    const replies = await db.all("SELECT id, author, body, created_at FROM ticket_replies WHERE ticket_id = ? ORDER BY id ASC", t.id);
+    return c.json({ id: t.id, subject: t.subject, status: t.status, created_at: t.created_at, replies });
+  }
+
+  async function replyVendorTicket(c: Ctx) {
+    const user = c.get("user");
+    const ticketId = Number(c.req.param("id"));
+    const t = await db.one("SELECT id FROM support_tickets WHERE id = ? AND vendor_id = ?", ticketId, user.id);
+    if (!t) return c.json(err("NOT_FOUND", "Ticket not found"), 404);
+    const body = await readJson(c);
+    const text = typeof body?.body === "string" ? body.body.trim() : "";
+    if (!text) return c.json(err("VALIDATION", "body is required"), 400);
+    if (text.length > 2000) return c.json(err("VALIDATION", "body must be at most 2000 characters"), 400);
+    const now = new Date().toISOString();
+    const r = await db.run("INSERT INTO ticket_replies (ticket_id, author, body, created_at) VALUES (?, 'vendor', ?, ?)", ticketId, text, now);
+    const reply = (await db.one("SELECT id, author, body, created_at FROM ticket_replies WHERE id = ?", Number(r.lastInsertRowid))) as Row;
+    return c.json(reply, 201);
+  }
+
   // ---------- routes (thin: parse input, call handler) ----------
   app.get("/", (c) => c.json({ ok: true, service: "water-backend" }));
   app.post("/api/auth/register", registerHandler);
@@ -557,6 +711,14 @@ export function createApp(db: DbClient, auth: AuthHasher) {
   app.patch("/api/vendor/orders/:id", vendorUpdateStatus);
   app.get("/api/vendor/kpis", vendorKpis);
   app.get("/api/vendor/subscriptions", vendorSubscriptions);
+  app.get("/api/vendor/profile", getVendorProfile);
+  app.patch("/api/vendor/profile", patchVendorProfile);
+  app.get("/api/vendor/slots", getVendorSlots);
+  app.put("/api/vendor/slots", putVendorSlots);
+  app.get("/api/vendor/tickets", listVendorTickets);
+  app.post("/api/vendor/tickets", createVendorTicket);
+  app.get("/api/vendor/tickets/:id", getVendorTicket);
+  app.post("/api/vendor/tickets/:id/replies", replyVendorTicket);
 
   return app;
 }

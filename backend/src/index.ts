@@ -44,6 +44,23 @@ for (const [col, type] of [
     db.exec(`ALTER TABLE addresses ADD COLUMN ${col} ${type}`);
   }
 }
+// Migration 0004_vendor_profile: 4 new tables (idempotent; CREATE TABLE
+// IF NOT EXISTS is D1-portable; mirrors backend/migrations/0004_vendor_profile.sql).
+const existingTables = new Set(
+  (db.query("SELECT name FROM sqlite_master WHERE type = 'table'").all() as Row[]).map((r) => r.name as string)
+);
+if (!existingTables.has("vendor_profile")) {
+  db.exec("CREATE TABLE IF NOT EXISTS vendor_profile (user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, name TEXT NOT NULL DEFAULT '', phone TEXT NOT NULL DEFAULT '', address TEXT NOT NULL DEFAULT '', hours TEXT NOT NULL DEFAULT '')");
+}
+if (!existingTables.has("vendor_slots")) {
+  db.exec("CREATE TABLE IF NOT EXISTS vendor_slots (user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, slot_key TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1, PRIMARY KEY (user_id, slot_key))");
+}
+if (!existingTables.has("support_tickets")) {
+  db.exec("CREATE TABLE IF NOT EXISTS support_tickets (id INTEGER PRIMARY KEY AUTOINCREMENT, vendor_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE, subject TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'open', created_at TEXT NOT NULL)");
+}
+if (!existingTables.has("ticket_replies")) {
+  db.exec("CREATE TABLE IF NOT EXISTS ticket_replies (id INTEGER PRIMARY KEY AUTOINCREMENT, ticket_id INTEGER NOT NULL REFERENCES support_tickets(id) ON DELETE CASCADE, author TEXT NOT NULL DEFAULT 'vendor', body TEXT NOT NULL, created_at TEXT NOT NULL)");
+}
 await seedIfEmpty(db);
 
 // ---------- Bun-backed DbClient (async wrappers over sync bun:sqlite) ----------

@@ -304,6 +304,53 @@ class _AddressesScreenState extends State<AddressesScreen> {
                     validator: validatePhone,
                   ),
                   const SizedBox(height: defaultPadding / 2),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        final picked = await Navigator.pushNamed(
+                          sheetContext,
+                          addressMapPickerScreenRoute,
+                        );
+                        if (!sheetContext.mounted) return;
+                        if (picked is Map<String, dynamic>) {
+                          setSheet(() {
+                            final pickedLat = picked['lat'];
+                            final pickedLng = picked['lng'];
+                            if (pickedLat is num) {
+                              lat.text = pickedLat.toString();
+                            }
+                            if (pickedLng is num) {
+                              lng.text = pickedLng.toString();
+                            }
+                            final pickedStreet = picked['street'];
+                            if (pickedStreet is String &&
+                                pickedStreet.isNotEmpty) {
+                              street.text = pickedStreet;
+                            }
+                            final pickedArea = picked['area'];
+                            if (pickedArea is String &&
+                                pickedArea.isNotEmpty) {
+                              area.text = pickedArea;
+                            }
+                            final pickedCity = picked['city'];
+                            if (pickedCity is String &&
+                                pickedCity.isNotEmpty) {
+                              city.text = pickedCity;
+                            }
+                            final pickedPincode = picked['pincode'];
+                            if (pickedPincode is String &&
+                                pickedPincode.isNotEmpty) {
+                              pincode.text = pickedPincode;
+                            }
+                          });
+                        }
+                      },
+                      icon: const Icon(Icons.map_outlined),
+                      label: const Text("Pick on map"),
+                    ),
+                  ),
+                  const SizedBox(height: defaultPadding / 2),
                   Row(
                     children: [
                       Expanded(

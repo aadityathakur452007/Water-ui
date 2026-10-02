@@ -61,3 +61,6 @@ const String vendorCustomersScreenRoute = "vendor_customers";
 const String vendorCustomerDetailScreenRoute = "vendor_customer_detail";
 const String vendorEarningsScreenRoute = "vendor_earnings";
 const String vendorInventoryScreenRoute = "vendor_inventory";
+const String vendorTicketsScreenRoute = "vendor_tickets";
+const String vendorTicketDetailScreenRoute = "vendor_ticket_detail";
+const String addressMapPickerScreenRoute = "address_map_picker";
